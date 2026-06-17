@@ -9,6 +9,7 @@ export type IncomeEntry = {
   source: string
   amount: number
   notes: string
+  unitId?: string // which rental unit this income belongs to
 }
 
 export type ExpenseEntry = {
@@ -19,17 +20,33 @@ export type ExpenseEntry = {
   notes: string
   receiptName?: string
   receiptData?: string // base64 data URL
+  unitId?: string // optional: blank = shared/whole-property expense
+}
+
+export type Unit = {
+  id: string
+  label: string // e.g. "Unit A", "Unit B", "Main"
+  accent: string // small color dot to tell units apart
+  status: "Rented" | "Vacant"
+  monthlyRent: number
+  tenantName: string
+  moveInDate: string
+  leaseEndDate: string // blank when month-to-month
+  monthToMonth: boolean
+  leaseName?: string
+  leaseData?: string // base64 data URL of uploaded lease
 }
 
 export type Property = {
   id: string
   name: string
   ownership: "LLC" | "Personal"
-  status: "Rented" | "Vacant"
-  monthlyRent: number
-  purchasePrice: number
-  purchaseDate: string
   theme: PropertyTheme
+  // Shared, behind-the-scenes tax basis (one set per building, even a duplex)
+  purchasePrice: number
+  purchaseDate: string // when the property was bought
+  placedInServiceDate: string // when it actually started being rented out
+  units: Unit[]
   income: IncomeEntry[]
   expenses: ExpenseEntry[]
 }

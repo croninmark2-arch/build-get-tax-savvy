@@ -1,6 +1,6 @@
 "use client"
 
-import type { Property } from "@/lib/types"
+import type { Property, Building } from "@/lib/types"
 import {
   exportPropertyCsv,
   exportScheduleE,
@@ -8,7 +8,15 @@ import {
   emailPropertyBackup,
 } from "@/lib/exports"
 
-export function ExportButtons({ property, accent }: { property: Property; accent: string }) {
+export function ExportButtons({
+  property,
+  building,
+  accent,
+}: {
+  property: Property
+  building?: Building
+  accent: string
+}) {
   const baseBtn =
     "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-85"
 
@@ -18,7 +26,7 @@ export function ExportButtons({ property, accent }: { property: Property; accent
         type="button"
         className={baseBtn}
         style={{ backgroundColor: accent }}
-        onClick={() => exportPropertyCsv(property)}
+        onClick={() => exportPropertyCsv(property, building)}
       >
         Export to CSV
       </button>
@@ -26,7 +34,7 @@ export function ExportButtons({ property, accent }: { property: Property; accent
         type="button"
         className={baseBtn}
         style={{ backgroundColor: accent }}
-        onClick={() => exportScheduleE(property)}
+        onClick={() => exportScheduleE(property, building)}
       >
         Export Schedule E
       </button>
@@ -42,7 +50,7 @@ export function ExportButtons({ property, accent }: { property: Property; accent
         type="button"
         className={baseBtn}
         style={{ backgroundColor: "#475569" }}
-        onClick={() => emailPropertyBackup(property)}
+        onClick={() => emailPropertyBackup(property, building)}
       >
         Email Me Backup
       </button>

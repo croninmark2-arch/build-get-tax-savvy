@@ -1,6 +1,6 @@
 "use client"
 
-import type { Property, Business } from "@/lib/types"
+import type { Property, Business, Building } from "@/lib/types"
 import { useAppData } from "@/hooks/use-app-data"
 import { emailFullBackup } from "@/lib/exports"
 import { PropertyCard } from "@/components/property-card"
@@ -14,6 +14,12 @@ export default function Page() {
     update((prev) => ({
       ...prev,
       properties: prev.properties.map((p) => (p.id === next.id ? next : p)),
+    }))
+
+  const updateBuilding = (next: Building) =>
+    update((prev) => ({
+      ...prev,
+      buildings: prev.buildings.map((b) => (b.id === next.id ? next : b)),
     }))
 
   const updateBusiness = (next: Business) =>
@@ -51,9 +57,22 @@ export default function Page() {
               Properties
             </h2>
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
-              {data.properties.map((p) => (
-                <PropertyCard key={p.id} property={p} onChange={updateProperty} />
-              ))}
+              {data.properties.map((p) => {
+                const building = data.buildings.find((b) => b.id === p.buildingId)
+                const sharedWithLabels = data.properties
+                  .filter((o) => o.id !== p.id && o.buildingId === p.buildingId)
+                  .map((o) => o.name)
+                return (
+                  <PropertyCard
+                    key={p.id}
+                    property={p}
+                    building={building}
+                    sharedWithLabels={sharedWithLabels}
+                    onChange={updateProperty}
+                    onBuildingChange={updateBuilding}
+                  />
+                )
+              })}
             </div>
           </section>
 

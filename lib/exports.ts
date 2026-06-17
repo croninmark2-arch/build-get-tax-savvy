@@ -1,4 +1,4 @@
-import { type AppData, type Property, type Business, MILEAGE_RATE } from "./types"
+import { type AppData, type Property, type Building, type Business, MILEAGE_RATE } from "./types"
 import {
   totalIncome,
   totalExpenses,
@@ -40,61 +40,60 @@ function safeName(name: string): string {
 }
 
 // 1. Export to CSV — Income + Expenses combined
-export function exportPropertyCsv(property: Property) {
-  const unitLabel = (id?: string) =>
-    id ? property.units.find((u) => u.id === id)?.label || "" : "Shared"
+export function exportPropertyCsv(property: Property, building?: Building) {
   const rows: (string | number)[][] = []
   rows.push([`Get Tax Savvy — ${property.name}`])
-  rows.push([`Ownership: ${property.ownership}`])
-  rows.push([])
-  rows.push(["UNITS"])
-  rows.push(["Unit", "Tenant", "Status", "Monthly Rent", "Move-in", "Lease End / Term", "Lease File"])
-  for (const u of property.units) {
-    rows.push([
-      u.label,
-      u.tenantName,
-      u.status,
-      u.monthlyRent.toFixed(2),
-      u.moveInDate,
-      u.monthToMonth ? "Month-to-month" : u.leaseEndDate,
-      u.leaseName || "",
-    ])
-  }
+  rows.push([`Ownership: ${property.ownership}`, `Status: ${property.status}`])
+  rows.push([
+    `Tenant: ${property.tenantName || "—"}`,
+    `Move-in: ${property.moveInDate || "—"}`,
+    `Lease: ${property.monthToMonth ? "Month-to-month" : property.leaseEndDate || "—"}`,
+    `Lease file: ${property.leaseName || "—"}`,
+  ])
   rows.push([])
   rows.push(["INCOME"])
-  rows.push(["Date", "Unit", "Source", "Amount", "Notes"])
+  rows.push(["Date", "Source", "Amount", "Notes"])
   for (const e of property.income) {
-    rows.push([e.date, unitLabel(e.unitId), e.source, e.amount.toFixed(2), e.notes])
+    rows.push([e.date, e.source, e.amount.toFixed(2), e.notes])
   }
-  rows.push(["", "", "Total Income", totalIncome(property).toFixed(2)])
+  rows.push(["", "Total Income", totalIncome(property).toFixed(2)])
   rows.push([])
   rows.push(["EXPENSES"])
-  rows.push(["Date", "Unit", "Category", "Amount", "Notes", "Receipt"])
+  rows.push(["Date", "Category", "Amount", "Notes", "Receipt"])
   for (const e of property.expenses) {
-    rows.push([e.date, unitLabel(e.unitId), e.category, e.amount.toFixed(2), e.notes, e.receiptName || ""])
+    rows.push([e.date, e.category, e.amount.toFixed(2), e.notes, e.receiptName || ""])
   }
-  rows.push(["", "", "Total Expenses", totalExpenses(property).toFixed(2)])
+  rows.push(["", "Total Expenses", totalExpenses(property).toFixed(2)])
   rows.push([])
-  rows.push(["Purchase Price", property.purchasePrice.toFixed(2)])
-  rows.push(["Date Purchased", property.purchaseDate])
-  rows.push(["Date First Rented (placed in service)", property.placedInServiceDate])
-  rows.push(["Annual Depreciation (estimate — confirm with CPA)", annualDepreciation(property).toFixed(2)])
-  rows.push(["Net Income", netIncome(property).toFixed(2)])
+  if (building) {
+    rows.push(["Building", building.label])
+    rows.push(["Purchase Price (whole building)", building.purchasePrice.toFixed(2)])
+    rows.push(["Date Purchased", building.purchaseDate])
+    rows.push(["Date First Rented (placed in service)", building.placedInServiceDate])
+    rows.push([`Depreciation share for this card (%)`, String(property.depreciationShare ?? 100)])
+  }
+  rows.push(["Annual Depreciation (estimate — confirm with CPA)", annualDepreciation(property, building).toFixed(2)])
+  rows.push(["Net Income", netIncome(property, building).toFixed(2)])
 
   triggerDownload(rowsToCsv(rows), `${safeName(property.name)}_data.csv`, "text/csv;charset=utf-8;")
 }
 
 // 2. Export Schedule E (IRS Schedule E 2026 format)
-export function exportScheduleE(property: Property) {
+export function exportScheduleE(property: Property, building?: Building) {
   const cats = expensesByCategory(property)
+  const dep = annualDepreciation(property, building)
   const rows: (string | number)[][] = []
   rows.push(["Schedule E (Form 1040) — Tax Year 2026"])
   rows.push(["Supplemental Income and Loss — Rental Real Estate"])
   rows.push([])
   rows.push(["Property", property.name])
-  rows.push(["Type", property.units.length > 1 ? "2 Multi-Family / Duplex" : "1 Single Family Residence"])
-  rows.push(["Date Purchased", property.purchaseDate])
-  rows.push(["Date Placed in Service (first rented)", property.placedInServiceDate])
+  rows.push(["Type", "Rental Real Estate"])
+  if (building) {
+    rows.push(["Building", building.label])
+    rows.push(["Date Purchased", building.purchaseDate])
+    rows.push(["Date Placed in Service (first rented)", building.placedInServiceDate])
+    rows.push(["Depreciation share for this card (%)", String(property.depreciationShare ?? 100)])
+  }
   rows.push([])
   rows.push(["Line", "Description", "Amount"])
   rows.push(["3", "Rents received", totalIncome(property).toFixed(2)])
@@ -135,9 +134,9 @@ export function exportScheduleE(property: Property) {
     if (!standard.has(cat)) otherTotal += amt
   }
   rows.push(["19", "Other (list)", otherTotal.toFixed(2)])
-  rows.push(["18", "Depreciation expense", annualDepreciation(property).toFixed(2)])
-  rows.push(["20", "Total expenses", (totalExpenses(property) + annualDepreciation(property)).toFixed(2)])
-  rows.push(["21", "Income or (loss)", netIncome(property).toFixed(2)])
+  rows.push(["18", "Depreciation expense", dep.toFixed(2)])
+  rows.push(["20", "Total expenses", (totalExpenses(property) + dep).toFixed(2)])
+  rows.push(["21", "Income or (loss)", netIncome(property, building).toFixed(2)])
   rows.push([])
   rows.push(["NOTE", "Depreciation is an estimate. Confirm eligibility, basis, and amount with your CPA — it only applies once the property was placed in service (rented out)."])
 
@@ -185,7 +184,7 @@ export function exportQuickBooksIif(property: Property) {
 }
 
 // 4. Email Me Backup — opens default email with CSV body
-export function emailPropertyBackup(property: Property) {
+export function emailPropertyBackup(property: Property, building?: Building) {
   const rows: (string | number)[][] = []
   rows.push(["INCOME"])
   rows.push(["Date", "Source", "Amount", "Notes"])
@@ -207,7 +206,7 @@ export function emailPropertyBackup(property: Property) {
     `Attached is the CSV backup for ${property.name} (downloaded to your device — please attach it).\n\n` +
       `Summary:\nTotal Income: $${totalIncome(property).toFixed(2)}\n` +
       `Total Expenses: $${totalExpenses(property).toFixed(2)}\n` +
-      `Net Income: $${netIncome(property).toFixed(2)}\n\n--- CSV Data ---\n${csv}`,
+      `Net Income: $${netIncome(property, building).toFixed(2)}\n\n--- CSV Data ---\n${csv}`,
   )
   window.location.href = `mailto:?subject=${subject}&body=${body}`
 }

@@ -9,7 +9,6 @@ export type IncomeEntry = {
   source: string
   amount: number
   notes: string
-  unitId?: string // which rental unit this income belongs to
 }
 
 export type ExpenseEntry = {
@@ -20,13 +19,27 @@ export type ExpenseEntry = {
   notes: string
   receiptName?: string
   receiptData?: string // base64 data URL
-  unitId?: string // optional: blank = shared/whole-property expense
 }
 
-export type Unit = {
+// A physical building / single purchase. A duplex is ONE building even though
+// it shows up as two property cards (Unit A + Unit B). The purchase basis and
+// depreciation live here so they are entered once and never double-counted.
+export type Building = {
   id: string
-  label: string // e.g. "Unit A", "Unit B", "Main"
-  accent: string // small color dot to tell units apart
+  label: string // e.g. "220 Elmwood Ave (duplex)"
+  purchasePrice: number
+  purchaseDate: string // when the building was bought
+  placedInServiceDate: string // when it actually started being rented out
+}
+
+export type Property = {
+  id: string
+  name: string
+  ownership: "LLC" | "Personal"
+  theme: PropertyTheme
+  buildingId: string // links to the shared Building that holds the purchase basis
+  depreciationShare: number // percent (0-100) of the building's depreciation allocated to this card
+  // Tenant / lease — one tenant per card
   status: "Rented" | "Vacant"
   monthlyRent: number
   tenantName: string
@@ -35,18 +48,6 @@ export type Unit = {
   monthToMonth: boolean
   leaseName?: string
   leaseData?: string // base64 data URL of uploaded lease
-}
-
-export type Property = {
-  id: string
-  name: string
-  ownership: "LLC" | "Personal"
-  theme: PropertyTheme
-  // Shared, behind-the-scenes tax basis (one set per building, even a duplex)
-  purchasePrice: number
-  purchaseDate: string // when the property was bought
-  placedInServiceDate: string // when it actually started being rented out
-  units: Unit[]
   income: IncomeEntry[]
   expenses: ExpenseEntry[]
 }
@@ -74,6 +75,7 @@ export type Business = {
 }
 
 export type AppData = {
+  buildings: Building[]
   properties: Property[]
   businesses: Business[]
   billingEnabled: boolean

@@ -1,18 +1,18 @@
 "use client"
 
 import { useRef, useState } from "react"
-import type { Property, Unit, IncomeEntry, ExpenseEntry } from "@/lib/types"
+import type { Property, Building, IncomeEntry, ExpenseEntry } from "@/lib/types"
 import { makeId } from "@/lib/storage"
 import {
   totalIncome,
   totalExpenses,
   annualDepreciation,
+  buildingDepreciation,
   depreciationNeedsReview,
-  unitIncome,
 } from "@/lib/tax-math"
 import { ExportButtons } from "./export-buttons"
 
-const TABS = ["Overview", "Income", "Expenses", "Monthly Ledger", "Schedule E 2026"] as const
+const TABS = ["Details", "Income", "Expenses", "Monthly Ledger", "Schedule E 2026"] as const
 type Tab = (typeof TABS)[number]
 
 const EXPENSE_CATEGORIES = [
@@ -38,24 +38,28 @@ function money(n: number) {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD" })
 }
 
-function leaseStatusLabel(u: Unit) {
-  if (u.status === "Vacant") return "Vacant"
-  if (u.monthToMonth) return "Month-to-month"
-  if (u.leaseEndDate) return `Lease ends ${u.leaseEndDate}`
+function leaseStatusLabel(p: Property) {
+  if (p.status === "Vacant") return "Vacant"
+  if (p.monthToMonth) return "Month-to-month"
+  if (p.leaseEndDate) return `Lease ends ${p.leaseEndDate}`
   return "Leased"
 }
 
 export function PropertyCard({
   property,
+  building,
+  sharedWithLabels,
   onChange,
+  onBuildingChange,
 }: {
   property: Property
+  building?: Building
+  sharedWithLabels: string[] // other card names that share this building
   onChange: (next: Property) => void
+  onBuildingChange: (next: Building) => void
 }) {
-  const [tab, setTab] = useState<Tab>("Overview")
+  const [tab, setTab] = useState<Tab>("Details")
   const accent = property.theme.border
-  const units = property.units ?? []
-  const isMultiUnit = units.length > 1
 
   return (
     <section
@@ -74,7 +78,7 @@ export function PropertyCard({
             </h2>
             <p className="text-sm text-white/70 text-pretty">
               {property.ownership}
-              {isMultiUnit ? ` · Duplex · ${units.length} units` : ""}
+              {property.monthlyRent > 0 ? ` · ${money(property.monthlyRent)}/mo` : ""}
             </p>
           </div>
           <div className="text-right">
@@ -86,34 +90,19 @@ export function PropertyCard({
         </div>
 
         {/* Tenant snapshot on the card front */}
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {units.map((u) => (
-            <div
-              key={u.id}
-              className="rounded-md bg-black/25 p-3"
-              style={{ borderLeft: `3px solid ${u.accent}` }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2 text-sm font-medium text-white">
-                  <span
-                    className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ backgroundColor: u.accent }}
-                  />
-                  {u.label}
-                </span>
-                <span className="text-xs text-white/70">
-                  {u.monthlyRent > 0 ? `${money(u.monthlyRent)}/mo` : "—"}
-                </span>
-              </div>
-              <p className="mt-1 text-sm text-white">
-                {u.tenantName || (u.status === "Vacant" ? "Vacant" : "Tenant not set")}
-              </p>
-              <p className="text-xs text-white/60">
-                {u.moveInDate ? `Moved in ${u.moveInDate} · ` : ""}
-                {leaseStatusLabel(u)}
-              </p>
-            </div>
-          ))}
+        <div className="mt-3 rounded-md bg-black/25 p-3">
+          <p className="text-sm text-white">
+            {property.tenantName || (property.status === "Vacant" ? "Vacant" : "Tenant not set")}
+          </p>
+          <p className="text-xs text-white/60">
+            {property.moveInDate ? `Moved in ${property.moveInDate} · ` : ""}
+            {leaseStatusLabel(property)}
+          </p>
+          {sharedWithLabels.length > 0 && (
+            <p className="mt-1 text-xs text-white/50">
+              Shares one purchase with {sharedWithLabels.join(", ")}
+            </p>
+          )}
         </div>
       </header>
 
@@ -136,38 +125,56 @@ export function PropertyCard({
       </div>
 
       <div className="p-4">
-        {tab === "Overview" && <OverviewTab property={property} onChange={onChange} />}
+        {tab === "Details" && (
+          <DetailsTab
+            property={property}
+            building={building}
+            sharedWithLabels={sharedWithLabels}
+            onChange={onChange}
+            onBuildingChange={onBuildingChange}
+          />
+        )}
         {tab === "Income" && <IncomeTab property={property} onChange={onChange} />}
         {tab === "Expenses" && <ExpensesTab property={property} onChange={onChange} accent={accent} />}
         {tab === "Monthly Ledger" && <LedgerTab property={property} />}
-        {tab === "Schedule E 2026" && <ScheduleETab property={property} />}
+        {tab === "Schedule E 2026" && <ScheduleETab property={property} building={building} />}
 
         <div className="mt-5 border-t border-white/10 pt-4">
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-white/60">Export</p>
-          <ExportButtons property={property} accent={accent} />
+          <ExportButtons property={property} building={building} accent={accent} />
         </div>
       </div>
     </section>
   )
 }
 
-/* ----------------------------- Overview (units + basis) ----------------------------- */
-function OverviewTab({
+/* ----------------------------- Details (tenant + lease + basis) ----------------------------- */
+function DetailsTab({
   property,
+  building,
+  sharedWithLabels,
   onChange,
+  onBuildingChange,
 }: {
   property: Property
+  building?: Building
+  sharedWithLabels: string[]
   onChange: (next: Property) => void
+  onBuildingChange: (next: Building) => void
 }) {
   const set = (patch: Partial<Property>) => onChange({ ...property, ...patch })
-  const updateUnit = (unitId: string, patch: Partial<Unit>) =>
-    onChange({
-      ...property,
-      units: property.units.map((u) => (u.id === unitId ? { ...u, ...patch } : u)),
-    })
+  const leaseRef = useRef<HTMLInputElement>(null)
+
+  const onLease = (file?: File) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => set({ leaseName: file.name, leaseData: reader.result as string })
+    reader.readAsDataURL(file)
+  }
 
   return (
     <div className="space-y-5">
+      {/* Tenant + lease */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Ownership">
           <select
@@ -179,94 +186,65 @@ function OverviewTab({
             <option value="Personal">Personal</option>
           </select>
         </Field>
-      </div>
-
-      {/* Per-unit tenant + lease editing */}
-      <div className="space-y-4">
-        {property.units.map((u) => (
-          <UnitEditor key={u.id} unit={u} onChange={(patch) => updateUnit(u.id, patch)} />
-        ))}
-      </div>
-
-      {/* Behind-the-scenes tax basis — one set for the whole building */}
-      <BasisSection property={property} onChange={set} />
-    </div>
-  )
-}
-
-function UnitEditor({ unit, onChange }: { unit: Unit; onChange: (patch: Partial<Unit>) => void }) {
-  const leaseRef = useRef<HTMLInputElement>(null)
-
-  const onLease = (file?: File) => {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onChange({ leaseName: file.name, leaseData: reader.result as string })
-    reader.readAsDataURL(file)
-  }
-
-  return (
-    <div className="rounded-md bg-black/20 p-3" style={{ borderLeft: `3px solid ${unit.accent}` }}>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: unit.accent }} />
-        <span className="text-sm font-medium text-white">{unit.label}</span>
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Tenant name">
-          <input
-            className="gts-input"
-            value={unit.tenantName}
-            placeholder="e.g. Jane Doe"
-            onChange={(e) => onChange({ tenantName: e.target.value })}
-          />
-        </Field>
         <Field label="Status">
           <select
             className="gts-input"
-            value={unit.status}
-            onChange={(e) => onChange({ status: e.target.value as Unit["status"] })}
+            value={property.status}
+            onChange={(e) => set({ status: e.target.value as Property["status"] })}
           >
             <option value="Rented">Rented</option>
             <option value="Vacant">Vacant</option>
           </select>
+        </Field>
+        <Field label="Tenant name">
+          <input
+            className="gts-input"
+            value={property.tenantName}
+            placeholder="e.g. Jane Doe"
+            onChange={(e) => set({ tenantName: e.target.value })}
+          />
         </Field>
         <Field label="Monthly rent ($)">
           <input
             className="gts-input"
             type="number"
             inputMode="decimal"
-            value={unit.monthlyRent || ""}
-            onChange={(e) => onChange({ monthlyRent: Number(e.target.value) || 0 })}
+            value={property.monthlyRent || ""}
+            onChange={(e) => set({ monthlyRent: Number(e.target.value) || 0 })}
           />
         </Field>
         <Field label="Original move-in date">
           <input
             className="gts-input"
             type="date"
-            value={unit.moveInDate}
-            onChange={(e) => onChange({ moveInDate: e.target.value })}
+            value={property.moveInDate}
+            onChange={(e) => set({ moveInDate: e.target.value })}
           />
         </Field>
         <Field label="Lease end date">
           <input
             className="gts-input"
             type="date"
-            value={unit.leaseEndDate}
-            disabled={unit.monthToMonth}
-            onChange={(e) => onChange({ leaseEndDate: e.target.value })}
+            value={property.leaseEndDate}
+            disabled={property.monthToMonth}
+            onChange={(e) => set({ leaseEndDate: e.target.value })}
           />
         </Field>
-        <label className="flex items-center gap-2 self-end pb-2 text-sm text-white/80">
-          <input
-            type="checkbox"
-            checked={unit.monthToMonth}
-            onChange={(e) => onChange({ monthToMonth: e.target.checked, leaseEndDate: e.target.checked ? "" : unit.leaseEndDate })}
-          />
-          Month-to-month
-        </label>
       </div>
 
+      <label className="flex items-center gap-2 text-sm text-white/80">
+        <input
+          type="checkbox"
+          checked={property.monthToMonth}
+          onChange={(e) =>
+            set({ monthToMonth: e.target.checked, leaseEndDate: e.target.checked ? "" : property.leaseEndDate })
+          }
+        />
+        Month-to-month
+      </label>
+
       {/* Lease upload */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <input
           ref={leaseRef}
           type="file"
@@ -281,21 +259,21 @@ function UnitEditor({ unit, onChange }: { unit: Unit; onChange: (patch: Partial<
         >
           Upload lease
         </button>
-        {unit.leaseName ? (
+        {property.leaseName ? (
           <a
-            href={unit.leaseData}
-            download={unit.leaseName}
+            href={property.leaseData}
+            download={property.leaseName}
             className="truncate text-xs text-white/80 underline hover:text-white"
           >
-            {unit.leaseName}
+            {property.leaseName}
           </a>
         ) : (
           <span className="text-xs text-white/50">No lease uploaded</span>
         )}
-        {unit.leaseName && (
+        {property.leaseName && (
           <button
             type="button"
-            onClick={() => onChange({ leaseName: undefined, leaseData: undefined })}
+            onClick={() => set({ leaseName: undefined, leaseData: undefined })}
             className="text-xs text-white/50 hover:text-white"
             aria-label="Remove lease"
           >
@@ -303,19 +281,37 @@ function UnitEditor({ unit, onChange }: { unit: Unit; onChange: (patch: Partial<
           </button>
         )}
       </div>
+
+      {/* Behind-the-scenes tax basis — shared across cards on the same building */}
+      <BasisSection
+        property={property}
+        building={building}
+        sharedWithLabels={sharedWithLabels}
+        onChange={set}
+        onBuildingChange={onBuildingChange}
+      />
     </div>
   )
 }
 
 function BasisSection({
   property,
+  building,
+  sharedWithLabels,
   onChange,
+  onBuildingChange,
 }: {
   property: Property
+  building?: Building
+  sharedWithLabels: string[]
   onChange: (patch: Partial<Property>) => void
+  onBuildingChange: (next: Building) => void
 }) {
-  const dep = annualDepreciation(property)
-  const review = depreciationNeedsReview(property)
+  const isShared = sharedWithLabels.length > 0
+  const totalDep = buildingDepreciation(building)
+  const myDep = annualDepreciation(property, building)
+  const review = depreciationNeedsReview(building)
+  const setB = (patch: Partial<Building>) => building && onBuildingChange({ ...building, ...patch })
 
   return (
     <div className="rounded-md border border-white/15 bg-black/25 p-3">
@@ -323,8 +319,9 @@ function BasisSection({
         Tax basis (whole building)
       </p>
       <p className="mt-1 text-xs text-white/50 text-pretty">
-        Stored once for the entire property — even a duplex is depreciated as one building, not per
-        unit.
+        {isShared
+          ? `This is one duplex purchase shared with ${sharedWithLabels.join(", ")}. Enter the purchase once here — editing it updates the linked card(s) too, so it's never double-counted.`
+          : "Entered once for the whole building. Even a duplex is depreciated as one building, not per unit."}
       </p>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Field label="Purchase price ($)">
@@ -332,35 +329,63 @@ function BasisSection({
             className="gts-input"
             type="number"
             inputMode="decimal"
-            value={property.purchasePrice || ""}
-            onChange={(e) => onChange({ purchasePrice: Number(e.target.value) || 0 })}
+            value={building?.purchasePrice || ""}
+            onChange={(e) => setB({ purchasePrice: Number(e.target.value) || 0 })}
           />
         </Field>
         <Field label="Date purchased">
           <input
             className="gts-input"
             type="date"
-            value={property.purchaseDate}
-            onChange={(e) => onChange({ purchaseDate: e.target.value })}
+            value={building?.purchaseDate || ""}
+            onChange={(e) => setB({ purchaseDate: e.target.value })}
           />
         </Field>
         <Field label="Date first rented out">
           <input
             className="gts-input"
             type="date"
-            value={property.placedInServiceDate}
-            onChange={(e) => onChange({ placedInServiceDate: e.target.value })}
+            value={building?.placedInServiceDate || ""}
+            onChange={(e) => setB({ placedInServiceDate: e.target.value })}
           />
         </Field>
       </div>
 
+      {isShared && (
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <Field label="This card's share of depreciation (%)">
+            <input
+              className="gts-input"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={100}
+              value={property.depreciationShare ?? 50}
+              onChange={(e) =>
+                onChange({ depreciationShare: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })
+              }
+            />
+          </Field>
+          <div className="flex items-end pb-2 text-xs text-white/50">
+            Split the building&apos;s depreciation between the units (e.g. 50% + 50%).
+          </div>
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap items-end justify-between gap-2 rounded-md bg-black/30 p-3">
         <div>
-          <p className="text-xs text-white/60">Estimated annual depreciation</p>
-          <p className="text-lg font-semibold text-white">
-            {property.placedInServiceDate ? money(dep) : "—"}
+          <p className="text-xs text-white/60">
+            {isShared ? "This card's depreciation" : "Estimated annual depreciation"}
           </p>
-          <p className="mt-1 text-[11px] text-white/50">(Purchase × 0.8) ÷ 27.5 yrs</p>
+          <p className="text-lg font-semibold text-white">
+            {building?.placedInServiceDate ? money(myDep) : "—"}
+          </p>
+          {isShared && building?.placedInServiceDate && (
+            <p className="mt-1 text-[11px] text-white/50">
+              Whole building: {money(totalDep)} · this card {property.depreciationShare ?? 50}%
+            </p>
+          )}
+          {!isShared && <p className="mt-1 text-[11px] text-white/50">(Purchase × 0.8) ÷ 27.5 yrs</p>}
         </div>
       </div>
 
@@ -387,9 +412,7 @@ function IncomeTab({
   property: Property
   onChange: (next: Property) => void
 }) {
-  const isMultiUnit = property.units.length > 1
   const [date, setDate] = useState("")
-  const [unitId, setUnitId] = useState(property.units[0]?.id || "")
   const [source, setSource] = useState("Rent")
   const [amount, setAmount] = useState("")
   const [notes, setNotes] = useState("")
@@ -402,7 +425,6 @@ function IncomeTab({
       source: source || "Rent",
       amount: Number(amount) || 0,
       notes,
-      unitId: unitId || property.units[0]?.id,
     }
     onChange({ ...property, income: [...property.income, entry] })
     setDate("")
@@ -414,21 +436,10 @@ function IncomeTab({
   const remove = (id: string) =>
     onChange({ ...property, income: property.income.filter((e) => e.id !== id) })
 
-  const unitLabel = (id?: string) => property.units.find((u) => u.id === id)?.label || "—"
-
   return (
     <div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <input className="gts-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        {isMultiUnit && (
-          <select className="gts-input" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-            {property.units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        )}
         <input className="gts-input" placeholder="Source" value={source} onChange={(e) => setSource(e.target.value)} />
         <input className="gts-input" type="number" inputMode="decimal" placeholder="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
         <input className="gts-input" placeholder="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -445,21 +456,10 @@ function IncomeTab({
         empty="No income recorded yet."
         rows={property.income.map((e) => ({
           id: e.id,
-          cols: [e.date, `${isMultiUnit ? unitLabel(e.unitId) + " · " : ""}${e.source}`, money(e.amount), e.notes],
+          cols: [e.date, e.source, money(e.amount), e.notes],
         }))}
         onRemove={remove}
       />
-
-      {isMultiUnit && (
-        <div className="mt-3 space-y-1 border-t border-white/10 pt-2">
-          {property.units.map((u) => (
-            <div key={u.id} className="flex items-center justify-between text-xs text-white/70">
-              <span>{u.label} income</span>
-              <span>{money(unitIncome(property, u.id))}</span>
-            </div>
-          ))}
-        </div>
-      )}
       <Totals label="Total Income" value={money(totalIncome(property))} />
     </div>
   )
@@ -475,9 +475,7 @@ function ExpensesTab({
   onChange: (next: Property) => void
   accent: string
 }) {
-  const isMultiUnit = property.units.length > 1
   const [date, setDate] = useState("")
-  const [unitId, setUnitId] = useState("") // "" = shared / whole property
   const [category, setCategory] = useState("Repairs")
   const [amount, setAmount] = useState("")
   const [notes, setNotes] = useState("")
@@ -505,7 +503,6 @@ function ExpensesTab({
       notes,
       receiptName,
       receiptData,
-      unitId: unitId || undefined,
     }
     onChange({ ...property, expenses: [...property.expenses, entry] })
     setDate("")
@@ -520,23 +517,10 @@ function ExpensesTab({
   const remove = (id: string) =>
     onChange({ ...property, expenses: property.expenses.filter((e) => e.id !== id) })
 
-  const unitLabel = (id?: string) =>
-    id ? property.units.find((u) => u.id === id)?.label || "—" : "Shared"
-
   return (
     <div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <input className="gts-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        {isMultiUnit && (
-          <select className="gts-input" value={unitId} onChange={(e) => setUnitId(e.target.value)}>
-            <option value="">Shared / whole property</option>
-            {property.units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-        )}
         <select className="gts-input" value={category} onChange={(e) => setCategory(e.target.value)}>
           {EXPENSE_CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -608,8 +592,7 @@ function ExpensesTab({
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate">
-                <span className="text-white/60">{e.date}</span>
-                {isMultiUnit ? ` · ${unitLabel(e.unitId)}` : ""} · {e.category}
+                <span className="text-white/60">{e.date}</span> · {e.category}
                 {e.notes ? ` · ${e.notes}` : ""}
               </p>
               {e.receiptName && <p className="truncate text-xs text-white/50">{e.receiptName}</p>}
@@ -681,8 +664,8 @@ function LedgerTab({ property }: { property: Property }) {
 }
 
 /* ----------------------------- Schedule E ----------------------------- */
-function ScheduleETab({ property }: { property: Property }) {
-  const dep = annualDepreciation(property)
+function ScheduleETab({ property, building }: { property: Property; building?: Building }) {
+  const dep = annualDepreciation(property, building)
   const inc = totalIncome(property)
   const exp = totalExpenses(property)
   const net = inc - exp - dep
@@ -707,7 +690,7 @@ function ScheduleETab({ property }: { property: Property }) {
         <span className="text-white">{money(net)}</span>
       </div>
       <p className="mt-2 text-xs text-white/50 text-pretty">
-        Depreciation is an estimate{property.placedInServiceDate ? "" : " (no rental-start date set, so it shows as $0)"} and{" "}
+        Depreciation is an estimate{building?.placedInServiceDate ? "" : " (no rental-start date set, so it shows as $0)"} and{" "}
         <strong className="text-amber-200">must be confirmed by your CPA</strong> — it only applies
         from the date the property was placed in service (actually rented out). Use “Export Schedule
         E” below for the full file.

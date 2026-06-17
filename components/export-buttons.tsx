@@ -13,7 +13,7 @@ export function ExportButtons({ property, accent }: { property: Property; accent
     "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-85"
 
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 2xl:grid-cols-4">
       <button
         type="button"
         className={baseBtn}

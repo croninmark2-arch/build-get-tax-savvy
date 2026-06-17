@@ -135,12 +135,12 @@ function IncomeSection({
           <p className="text-sm text-white/50">No income recorded yet.</p>
         )}
         {business.income.map((e) => (
-          <div key={e.id} className="flex items-center gap-3 rounded-md bg-black/20 px-3 py-2 text-sm text-white">
+          <div key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-sm text-white">
             <span className="text-white/60">{e.date}</span>
-            <span className="flex-1">{e.source}</span>
+            <span className="min-w-0 flex-1">{e.source}</span>
             <span className="text-white/70">{e.notes}</span>
             <span className="font-medium">{money(e.amount)}</span>
-            <button type="button" onClick={() => remove(e.id)} className="text-white/50 hover:text-white" aria-label="Remove">
+            <button type="button" onClick={() => remove(e.id)} className="ml-auto text-white/50 hover:text-white sm:ml-0" aria-label="Remove">
               ✕
             </button>
           </div>
@@ -202,12 +202,12 @@ function MileageSection({
           <p className="text-sm text-white/50">No mileage recorded yet.</p>
         )}
         {business.mileage.map((m) => (
-          <div key={m.id} className="flex items-center gap-3 rounded-md bg-black/20 px-3 py-2 text-sm text-white">
+          <div key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-sm text-white">
             <span className="text-white/60">{m.date}</span>
-            <span className="flex-1">{m.description}</span>
+            <span className="min-w-0 flex-1">{m.description}</span>
             <span className="text-white/70">{m.miles} mi</span>
             <span className="font-medium">{money(m.miles * MILEAGE_RATE)}</span>
-            <button type="button" onClick={() => remove(m.id)} className="text-white/50 hover:text-white" aria-label="Remove">
+            <button type="button" onClick={() => remove(m.id)} className="ml-auto text-white/50 hover:text-white sm:ml-0" aria-label="Remove">
               ✕
             </button>
           </div>

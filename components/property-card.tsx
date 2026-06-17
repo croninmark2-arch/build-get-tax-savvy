@@ -69,10 +69,12 @@ export function PropertyCard({
         boxShadow: `0 0 18px ${accent}55`,
       }}
     >
-      <header className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
-        <div>
-          <h2 className="text-lg font-semibold text-white text-balance">{property.name}</h2>
-          <p className="text-sm text-white/70">
+      <header className="flex flex-wrap items-start justify-between gap-2 px-4 pt-4">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-white text-balance sm:text-lg">
+            {property.name}
+          </h2>
+          <p className="text-sm text-white/70 text-pretty">
             {property.ownership} · {property.status}
             {property.monthlyRent > 0 ? ` · ${money(property.monthlyRent)}/mo` : ""}
           </p>
@@ -83,8 +85,8 @@ export function PropertyCard({
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="mt-3 flex flex-wrap gap-1 px-4 gts-tabs py-1.5 mx-4 rounded-md">
+      {/* Tabs — horizontally scrollable on small screens */}
+      <div className="mt-3 flex gap-1 overflow-x-auto px-2 py-1.5 mx-4 rounded-md gts-tabs [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((t) => {
           const active = t === tab
           return (
@@ -92,7 +94,7 @@ export function PropertyCard({
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className="rounded px-2.5 py-1.5 text-xs font-medium text-white transition-colors"
+              className="shrink-0 whitespace-nowrap rounded px-2.5 py-1.5 text-xs font-medium text-white transition-colors"
               style={{ backgroundColor: active ? accent : "transparent" }}
             >
               {t}
@@ -511,16 +513,16 @@ function EntryList({
       {rows.map((r) => (
         <div
           key={r.id}
-          className="flex items-center gap-3 rounded-md bg-black/20 px-3 py-2 text-sm text-white"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-sm text-white"
         >
           <span className="text-white/60">{r.cols[0]}</span>
-          <span className="flex-1">{r.cols[1]}</span>
+          <span className="min-w-0 flex-1">{r.cols[1]}</span>
           <span className="text-white/70">{r.cols[3]}</span>
           <span className="font-medium">{r.cols[2]}</span>
           <button
             type="button"
             onClick={() => onRemove(r.id)}
-            className="text-white/50 hover:text-white"
+            className="ml-auto text-white/50 hover:text-white sm:ml-0"
             aria-label="Remove entry"
           >
             ✕

@@ -23,18 +23,20 @@ export default function Page() {
     }))
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8 pb-24">
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <main className="mx-auto w-full max-w-6xl px-3 py-6 pb-24 sm:px-4 sm:py-8 lg:px-6 xl:max-w-7xl">
+      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white text-balance">Get Tax Savvy</h1>
-          <p className="text-sm text-white/60">
+          <h1 className="text-xl font-bold text-white text-balance sm:text-2xl lg:text-3xl">
+            Get Tax Savvy
+          </h1>
+          <p className="text-sm text-white/60 text-pretty">
             Rental property &amp; business income, expenses, and one-click tax exports.
           </p>
         </div>
         <button
           type="button"
           onClick={() => emailFullBackup(data)}
-          className="rounded-md bg-white/15 px-4 py-2 text-sm font-medium text-white hover:bg-white/25"
+          className="w-full rounded-md bg-white/15 px-4 py-2 text-sm font-medium text-white hover:bg-white/25 sm:w-auto"
         >
           Email Full Backup
         </button>
@@ -48,7 +50,7 @@ export default function Page() {
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">
               Properties
             </h2>
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2">
               {data.properties.map((p) => (
                 <PropertyCard key={p.id} property={p} onChange={updateProperty} />
               ))}
@@ -59,7 +61,7 @@ export default function Page() {
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">
               Businesses
             </h2>
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
               {data.businesses.map((b) => (
                 <BusinessCard key={b.id} business={b} onChange={updateBusiness} />
               ))}

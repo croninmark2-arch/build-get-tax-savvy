@@ -1,0 +1,51 @@
+"use client"
+
+import type { Property } from "@/lib/types"
+import {
+  exportPropertyCsv,
+  exportScheduleE,
+  exportQuickBooksIif,
+  emailPropertyBackup,
+} from "@/lib/exports"
+
+export function ExportButtons({ property, accent }: { property: Property; accent: string }) {
+  const baseBtn =
+    "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-85"
+
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <button
+        type="button"
+        className={baseBtn}
+        style={{ backgroundColor: accent }}
+        onClick={() => exportPropertyCsv(property)}
+      >
+        Export to CSV
+      </button>
+      <button
+        type="button"
+        className={baseBtn}
+        style={{ backgroundColor: accent }}
+        onClick={() => exportScheduleE(property)}
+      >
+        Export Schedule E
+      </button>
+      <button
+        type="button"
+        className={baseBtn}
+        style={{ backgroundColor: accent }}
+        onClick={() => exportQuickBooksIif(property)}
+      >
+        Export for QuickBooks
+      </button>
+      <button
+        type="button"
+        className={baseBtn}
+        style={{ backgroundColor: "#475569" }}
+        onClick={() => emailPropertyBackup(property)}
+      >
+        Email Me Backup
+      </button>
+    </div>
+  )
+}

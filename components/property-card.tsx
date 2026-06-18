@@ -1,5 +1,10 @@
 "use client"
-
+const categoryColors = {
+  llc: "bg-blue-50 border-l-4 border-blue-500", 
+  personal: "bg-green-50 border-l-4 border-green-500",
+  joint: "bg-purple-50 border-l-4 border-purple-500", 
+  officiating: "bg-orange-50 border-l-4 border-orange-500",
+}
 import { useRef, useState } from "react"
 import type { Property, IncomeEntry, ExpenseEntry } from "@/lib/types"
 import { makeId } from "@/lib/storage"

@@ -58,7 +58,7 @@ function money(n: number) {
 export function PropertyCard({
   property,
   onChange,
-}: {
+const accent = categoryColors[property.category] || "bg-gray-50 border-l-4 border-gray-500"
   property: Property
   onChange: (next: Property) => void
 }) {

@@ -1,6 +1,7 @@
-import "./globals.css"
-import BottomNav from "@/components/bottom-nav"
-import Sidebar from "@/components/sidebar"
+export const metadata = {
+  title: 'Get Tax Savvy',
+  description: 'Track business expenses',
+}
 
 export default function RootLayout({
   children,
@@ -9,15 +10,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <Sidebar />
-        <div className="md:pl-64">
-          <main className="pb-16 md:pb-0">
-            {children}
-          </main>
-        </div>
-        <BottomNav />
-      </body>
+      <body>{children}</body>
     </html>
   )
 }

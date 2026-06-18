@@ -1,39 +1,3 @@
-"use client"
-
-export default function Properties() {
-  const properties = [
-    { 
-      name: "118 Daffodil Drive", 
-      address: "Horseheads, NY", 
-      color: "#EF4444", // Red
-      owner: "Personal",
-      status: "Owner Occupied",
-      monthlyRent: 0
-    },
-    { 
-      name: "114 Orchard St", 
-      color: "#00A86B", // Kelly Green
-      owner: "Cronin NY Property Management LLC",
-      status: "Rented",
-      monthlyRent: 0
-    },
-    { 
-      name: "220 Elmwood Ave", 
-      color: "#3B82F6", // Blue
-      owner: "Cronin NY Property Management LLC",
-      status: "Rented",
-      units: ["Unit A", "Unit B"],
-      monthlyRent: 0
-    },
-    { 
-      name: "146 W Fourth St", 
-      color: "#7DD3FC", // Light Slate Blue
-      owner: "Cronin NY Property Management LLC",
-      status: "Rented",
-      monthlyRent: 0
-    },
-  ]
-
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-[#1E3A8A] mb-6">Properties</h1>

@@ -67,7 +67,7 @@ const accent = categoryColors[property.category] || "bg-gray-50 border-l-4 borde
 
   return (
     <section
-      className="gts-card overflow-hidden"
+         className={`gts-card overflow-hidden ${accent}`}
       style={{
         borderLeftColor: accent,
         backgroundColor: property.theme.bg,

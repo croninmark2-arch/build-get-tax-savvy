@@ -6,7 +6,13 @@ import { emailFullBackup } from "@/lib/exports"
 import { PropertyCard } from "@/components/property-card"
 import { BusinessCard } from "@/components/business-card"
 import { AdminPanel } from "@/components/admin-panel"
-
+// Color system for entity types
+const categoryColors = {
+  llc: "bg-blue-50 border-blue-500 text-blue-900",         // LLC = Blue
+  personal: "bg-green-50 border-green-500 text-green-900",  // Personal Home = Green 
+  joint: "bg-purple-50 border-purple-500 text-purple-900",  // You+Wife Rentals = Purple
+  officiating: "bg-orange-50 border-orange-500 text-orange-900", // Basketball = Orange
+}
 export default function Page() {
   const { data, update, loaded } = useAppData()
 

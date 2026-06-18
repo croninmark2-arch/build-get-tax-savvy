@@ -63,7 +63,7 @@ const accent = categoryColors[property.category] || "bg-gray-50 border-l-4 borde
   onChange: (next: Property) => void
 }) {
   const [tab, setTab] = useState<Tab>("Details")
-  const accent = property.theme.border
+  
 
   return (
     <section

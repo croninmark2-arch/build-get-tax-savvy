@@ -1,54 +1,81 @@
-"use client"
+'use client'
 
-export default function Expenses() {
+export default function ExpensesPage() {
   const businesses = [
-    { 
-      name: "Cronin NY Property Management LLC", 
-      color: "#00A86B", 
-      type: "LLC",
-      properties: ["114 Orchard St", "220 Elmwood Ave", "146 W Fourth St"]
+    {
+      id: 1,
+      name: 'Cronin NY Property Management LLC',
+      type: 'LLC',
+      color: '#16a34a', // green-600
+      properties: ['114 Orchard St', '220 Elmwood Ave'],
+      total: 0.00
     },
-    { 
-      name: "MCMC PROPERTIES INC", 
-      color: "#166534", 
-      type: "Corporation",
-      properties: []
+    {
+      id: 2,
+      name: 'MCMC PROPERTIES INC',
+      type: 'Corporation', 
+      color: '#15803d', // green-700
+      properties: [],
+      total: 0.00
     },
-    { 
-      name: "Basketball Officiating", 
-      color: "#F97316", 
-      type: "1099 Income",
-      properties: []
+    {
+      id: 3,
+      name: 'Mark & Tammi Cronin',
+      type: 'Personal - Rental',
+      color: '#dc2626', // red-600
+      properties: ['146 W Fourth St'],
+      total: 0.00
     },
+    {
+      id: 4,
+      name: 'Basketball Officiating',
+      type: '1099 Income',
+      color: '#ea580c', // orange-600
+      properties: [],
+      total: 0.00
+    }
   ]
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-[#1E3A8A] mb-6">Business Expenses</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {businesses.map((biz) => (
-          <div 
-            key={biz.name}
-            className="rounded-xl p-6 text-white shadow-lg"
-            style={{ backgroundColor: biz.color }}
-          >
-            <div className="mb-4">
-              <h2 className="text-xl font-bold leading-tight">{biz.name}</h2>
-              <p className="text-white/70 text-sm">{biz.type}</p>
+    <main className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Business Expenses</h1>
+        
+        <div className="space-y-6">
+          {businesses.map((biz) => (
+            <div 
+              key={biz.id}
+              className="bg-white rounded-xl shadow-lg border-l-8 overflow-hidden"
+              style={{ borderLeftColor: biz.color }}
+            >
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-1">{biz.name}</h2>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wide">{biz.type}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-bold text-gray-900">${biz.total.toFixed(2)}</p>
+                    <p className="text-sm text-gray-500">Total Expenses YTD</p>
+                  </div>
+                </div>
+
+                {biz.properties.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold">Properties:</span> {biz.properties.join(', ')}
+                    </p>
+                  </div>
+                )}
+
+                <button className="bg-gray-900 hover:bg-gray-800 text-white font-semibold px-5 py-2 rounded-lg transition-colors">
+                  + Add Expense
+                </button>
+              </div>
             </div>
-            <p className="text-white/90 text-2xl font-bold mb-1">$0.00</p>
-            <p className="text-white/60 text-xs mb-3">Total Expenses YTD</p>
-            {biz.properties.length > 0 && (
-              <p className="text-white/50 text-xs mb-4">
-                Includes: {biz.properties.join(", ")}
-              </p>
-            )}
-            <button className="w-full bg-white/20 hover:bg-white/30 px-4 py-2 rounded-md text-sm font-medium">
-              + Add Expense
-            </button>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+    </main>
   )
 }

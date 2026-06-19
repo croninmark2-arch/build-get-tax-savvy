@@ -831,3 +831,81 @@ const TaxSavvy = () => {
 }
 
 export default TaxSavvy
+          <button onClick={saveExpense} style={{...styles.btn, flex: 1}}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'mileage' && (
+        <div style={styles.modal} onClick={() => setShowModal(null)}>
+          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{fontWeight: 'bold', fontSize: '18px', marginBottom: '16px', color: theme.green}}>Log Mileage</h3>
+            <label style={styles.label}>Date</label>
+            <input type="date" value={mileageForm.date} onChange={e => setMileageForm({...mileageForm, date: e.target.value})} style={styles.input} />
+            <label style={styles.label}>From</label>
+            <input value={mileageForm.from} onChange={e => setMileageForm({...mileageForm, from: e.target.value})} style={styles.input} placeholder="From" />
+            <label style={styles.label}>To</label>
+            <select value={mileageForm.to} onChange={e => setMileageForm({...mileageForm, to: e.target.value})} style={styles.input}>
+              <option value="">Select Destination</option>
+              {Object.keys(profile.mileageDefaults).map(loc => <option key={loc} value={loc}>{loc} ({profile.mileageDefaults[loc]} mi)</option>)}
+            </select>
+            <label style={styles.label}>Purpose</label>
+            <select value={mileageForm.purpose} onChange={e => setMileageForm({...mileageForm, purpose: e.target.value})} style={styles.input}>
+              {tripPurposes.map(p => <option key={p}>{p}</option>)}
+            </select>
+            <label style={styles.label}>Trip Type</label>
+            <select value={mileageForm.tripType} onChange={e => setMileageForm({...mileageForm, tripType: e.target.value})} style={styles.input}>
+              <option>Round Trip</option>
+              <option>One Way</option>
+            </select>
+            <label style={styles.label}>Extra Miles</label>
+            <input type="number" value={mileageForm.extraMiles} onChange={e => setMileageForm({...mileageForm, extraMiles: e.target.value})} style={styles.input} placeholder="Extra Miles" />
+            
+            <h4 style={{fontWeight: '500', fontSize: '14px', marginTop: '16px', marginBottom: '8px', color: theme.green}}>Additional Stops</h4>
+            {mileageForm.stops.map((stop, idx) => (
+              <div key={idx} style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                <input value={stop.location} onChange={e => {
+                  const newStops = [...mileageForm.stops]
+                  newStops[idx].location = e.target.value
+                  setMileageForm({...mileageForm, stops: newStops})
+                }} style={{...styles.input, marginBottom: 0, flex: 1}} placeholder="Location" />
+                <input type="number" value={stop.miles} onChange={e => {
+                  const newStops = [...mileageForm.stops]
+                  newStops[idx].miles = e.target.value
+                  setMileageForm({...mileageForm, stops: newStops})
+                }} style={{...styles.input, marginBottom: 0, width: '80px'}} placeholder="Miles" />
+                <button onClick={() => setMileageForm({...mileageForm, stops: mileageForm.stops.filter((_, i) => i!== idx)})} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+              </div>
+            ))}
+            <button onClick={() => setMileageForm({...mileageForm, stops: [...mileageForm.stops, {location: '', miles: ''}]})} style={{fontSize: '14px', color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '16px'}}>+ Add Stop</button>
+
+            <label style={styles.label}>Entity</label>
+            <select value={mileageForm.entityId} onChange={e => setMileageForm({...mileageForm, entityId: e.target.value})} style={styles.input}>
+              {entities.filter(e => e.active).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            
+            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
+              <button onClick={() => setShowModal(null)} style={{...styles.btnSecondary, flex: 1}}>Cancel</button>
+              <button onClick={saveMileage} style={{...styles.btn, flex: 1}}>Save Trip</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: theme.navy, borderTop: `2px solid ${theme.green}`, display: 'flex', justifyContent: 'space-around', padding: '8px 0'}}>
+        {[{id: 'dashboard', icon: Home, label: 'Dashboard'}, {id: 'expenses', icon: TrendingUp, label: 'Expenses'}, {id: 'mileage', icon: Car, label: 'Mileage'}, {id: 'reports', icon: FileText, label: 'Reports'}].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer',
+            color: activeTab === tab.id? theme.green : theme.white
+          }}>
+            <tab.icon size={20} />
+            <span style={{fontSize: '12px', marginTop: '4px'}}>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default TaxSavvy

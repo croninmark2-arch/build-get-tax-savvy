@@ -251,10 +251,20 @@ const TaxSavvy = () => {
     return (
       <div style={{...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'}}>
         <div style={{...styles.card, maxWidth: '400px', width: '100%'}}>
-          <div style={styles.logo}>
-            <div style={styles.dollar}>$</div>
-            <h1 style={{...styles.brand, margin: 0}}>TaxSavvy</h1>
-          </div>
+    <div onClick={() => setActiveTab('dashboard')} style={{display:'flex',alignItems:'center',cursor:'pointer'}}>
+  <div style={{marginRight:'8px',lineHeight:'1'}}>
+    <svg width="40" height="40" viewBox="0 0 40 40" style={{display:'block'}}>
+      <defs>
+        <clipPath id="dollarClipA">
+          <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="36" fontWeight="900" fontFamily="system-ui">$</text>
+        </clipPath>
+      </defs>
+      <rect width="40" height="40" fill="#39FF14" clipPath="url(#dollarClipA)" />
+      <rect width="40" height="40" fill="#EF4444" clipPath="url(#dollarClipA)" transform="rotate(45 20 20) translate(20,-20)" />
+    </svg>
+  </div>
+  <h1 style={{...styles.brand, margin:0}}>TaxSavvy</h1>
+</div>
           <h2 style={{fontSize: '20px', fontWeight: '600', color: theme.green, margin: '16px 0'}}>Try the Demo</h2>
           <p style={{fontSize: '14px', color: theme.white, marginBottom: '16px'}}>Enter your email to access the full demo instantly.</p>
           <input type="email" value={demoEmail} onChange={e => setDemoEmail(e.target.value)} style={styles.input} placeholder="your@email.com" />

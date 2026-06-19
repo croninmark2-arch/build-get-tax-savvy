@@ -427,3 +427,407 @@ const TaxSavvy = () => {
             <div style={styles.card}>
               <p style={{fontSize: '14px', color: '#9CA3AF'}}>Total Capital Improvements</p>
               <p
+              <p style={{fontSize: '32px', fontWeight: 'bold', color: theme.green}}>${entityCapital.reduce((s, c) => s + c.amount, 0).toFixed(2)}</p>
+              <p style={{fontSize: '12px', color: '#9CA3AF'}}>Energy Credits: ${entityCapital.reduce((s, c) => s + c.federalCreditAmount + c.nysRebateAmount, 0).toFixed(2)}</p>
+            </div>
+            {entityCapital.map(cap => (
+              <div key={cap.id} style={styles.card}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div style={{flex: 1}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '4px'}}>
+                      <span style={{fontSize: '14px'}}>{cap.date} • {cap.subcategory || cap.category}</span>
+                      <span style={{fontWeight: '600', color: theme.green}}>${cap.amount}</span>
+                    </div>
+                    <p style={{fontSize: '12px', color: '#9CA3AF'}}>{cap.description}</p>
+                    {cap.isEnergyStar && <span style={{fontSize: '12px', backgroundColor: '#059669', color: theme.white, padding: '2px 8px', borderRadius: '4px', marginTop: '4px', display: 'inline-block'}}>Energy Star • Federal: ${cap.federalCreditAmount} • NYS: ${cap.nysRebateAmount}</span>}
+                  </div>
+                  <button onClick={() => deleteExpense(cap.id, true)} style={{marginLeft: '8px', background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'income' && (
+          <div>
+            <h2 style={{fontSize: '18px', fontWeight: '600', color: theme.green, marginBottom: '16px'}}>Income</h2>
+            <div style={styles.card}>
+              <h3 style={{fontWeight: '500', marginBottom: '8px', color: theme.green}}>This Month</h3>
+              <p style={{fontSize: '32px', fontWeight: 'bold', color: theme.green}}>${entityProperties.reduce((sum, p) => sum + p.payments.reduce((s, pay) => s + pay.amount, 0), 0)}</p>
+              <p style={{fontSize: '14px', color: '#9CA3AF'}}>Total Collected</p>
+            </div>
+            {entityProperties.map(prop => (
+              <div key={prop.id} style={styles.card}>
+                <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px'}}>
+                  <span>{prop.name}</span>
+                  <span style={{fontWeight: '600', color: theme.green}}>${prop.payments.reduce((s, p) => s + p.amount, 0)} / ${prop.rent}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div>
+            <h2 style={{fontSize: '18px', fontWeight: '600', color: theme.green, marginBottom: '16px'}}>Reports & Export</h2>
+            <div style={{display: 'grid', gap: '8px'}}>
+              <button onClick={emailReport} style={{...styles.card, textAlign: 'left', display: 'flex', alignItems: 'center', cursor: 'pointer'}}><Mail size={18} style={{marginRight: '8px', color: theme.green}} />Email Me Report</button>
+              <button onClick={emailCPA} style={{...styles.card, textAlign: 'left', display: 'flex', alignItems: 'center', cursor: 'pointer'}}><Mail size={18} style={{marginRight: '8px', color: theme.green}} />Send to CPA</button>
+              <button onClick={exportExcel} style={{...styles.card, textAlign: 'left', display: 'flex', alignItems: 'center', cursor: 'pointer'}}><Download size={18} style={{marginRight: '8px', color: theme.green}} />Export to Excel</button>
+              <button onClick={exportGoogleSheets} style={{...styles.card, textAlign: 'left', display: 'flex', alignItems: 'center', cursor: 'pointer'}}><Download size={18} style={{marginRight: '8px', color: theme.green}} />Export to Google Sheets</button>
+              <button onClick={exportQuickBooks} style={{...styles.card, textAlign: 'left', display: 'flex', alignItems: 'center', cursor: 'pointer'}}><Download size={18} style={{marginRight: '8px', color: theme.green}} />Export to QuickBooks</button>
+            </div>
+            {/* SMALL LOGO ON EVERY REPORT PAGE */}
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '32px', opacity: '0.6'}}>
+              <svg width="20" height="20" viewBox="0 0 40 40" style={{marginRight: '6px'}}>
+                <defs>
+                  <clipPath id="reportDollarClip">
+                    <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="36" fontWeight="900" fontFamily="system-ui">$</text>
+                  </clipPath>
+                </defs>
+                <rect width="40" height="40" fill="#39FF14" clipPath="url(#reportDollarClip)" />
+                <rect width="40" height="40" fill="#EF4444" clipPath="url(#reportDollarClip)" transform="rotate(45 20 20) translate(20, -20)" />
+              </svg>
+              <span style={{fontSize: '12px', color: theme.green, fontWeight: '600'}}>TaxSavvy</span>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'property-setup' && (
+          <div>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+              <h2 style={{fontSize: '18px', fontWeight: '600', color: theme.green}}>Properties</h2>
+              <button onClick={() => {setEditingItem(null); setPropertyForm({name: '', address: '', entityId: activeEntity, rent: '', hud: '', status: 'Vacant', tenant: '', leaseStart: '', leaseEnd: '', signedBy: '', occupants: [], recurringPayers: [], leaseFile: null}); setShowModal('property')}} style={styles.btn}><Plus size={16} style={{display: 'inline', marginRight: '4px'}} />Add Property</button>
+            </div>
+            {properties.map(p => (
+              <div key={p.id} style={styles.card}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                  <div>
+                    <p style={{fontWeight: '500', color: theme.green}}>{p.name}</p>
+                    <p style={{fontSize: '12px', color: '#9CA3AF'}}>{p.address}</p>
+                    <p style={{fontSize: '12px', color: theme.green}}>{p.status} • ${p.rent}/mo</p>
+                  </div>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <button onClick={() => {setEditingItem(p.id); setPropertyForm(p); setShowModal('property')}} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Edit3 size={16} style={{color: theme.green}} /></button>
+                    <button onClick={() => deleteProperty(p.id)} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'business-setup' && (
+          <div>
+            <h2 style={{fontSize: '18px', fontWeight: '600', color: theme.green, marginBottom: '16px'}}>Business Entities</h2>
+            {entities.map(e => (
+              <div key={e.id} style={{...styles.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                <div>
+                  <p style={{fontWeight: '500', color: theme.green}}>{e.name}</p>
+                  <p style={{fontSize: '12px', color: '#9CA3AF'}}>{e.type}</p>
+                </div>
+                <input type="checkbox" checked={e.active} onChange={() => setEntities(entities.map(ent => ent.id === e.id? {...ent, active:!ent.active} : ent))} style={{width: '20px', height: '20px', accentColor: theme.green}} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div>
+            <h2 style={{fontSize: '18px', fontWeight: '600', color: theme.green, marginBottom: '16px'}}>Settings</h2>
+            <div style={styles.card}>
+              <h3 style={{fontWeight: '500', marginBottom: '12px', color: theme.green}}>Profile</h3>
+              <label style={styles.label}>Name</label>
+              <input value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} style={styles.input} disabled={isDemo} />
+              <label style={styles.label}>Email for Reports</label>
+              <input value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} style={styles.input} disabled={isDemo} />
+              <label style={styles.label}>CPA Email</label>
+              <input value={profile.cpaEmail} onChange={e => setProfile({...profile, cpaEmail: e.target.value})} style={styles.input} disabled={isDemo} />
+              {isDemo && <p style={{fontSize: '12px', color: '#9CA3AF', marginTop: '8px'}}>Demo mode: Changes not saved</p>}
+            </div>
+            <div style={styles.card}>
+              <h3 style={{fontWeight: '500', marginBottom: '12px', color: theme.green}}>Home Office</h3>
+              <p style={{fontSize: '14px', marginBottom: '8px'}}>{homeOffice.address}</p>
+              <p style={{fontSize: '14px'}}>Total: {homeOffice.totalSqFt} sq ft | Office: {homeOffice.workspaces.reduce((s,w)=>s+w.sqFt,0)} sq ft ({homeOfficePercent.toFixed(1)}%)</p>
+              {homeOffice.workspaces.map((w, i) => (
+                <p key={i} style={{fontSize: '12px', color: '#9CA3AF', marginLeft: '8px'}}>• {w.name}: {w.sqFt} sq ft</p>
+              ))}
+            </div>
+            <div style={styles.card}>
+              <h3 style={{fontWeight: '500', marginBottom: '12px', color: theme.green}}>Mileage Defaults</h3>
+              {Object.entries(profile.mileageDefaults).map(([loc, mi]) => (
+                <div key={loc} style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px', padding: '4px 0'}}><span>{loc}</span><span style={{color: theme.green}}>{mi} mi</span></div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'admin' &&!isDemo && (
+          <div>
+            <h2 style={{fontSize: '18px', fontWeight: '600', color: theme.green, marginBottom: '16px'}}>Admin Settings</h2>
+            <div style={styles.card}>
+              <h3 style={{fontWeight: '500', marginBottom: '12px', color: theme.green}}>Demo Settings</h3>
+              <label style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px'}}>
+                <span style={{fontSize: '14px'}}>Require Email for Demo Access</span>
+                <input type="checkbox" checked={adminSettings.requireDemoEmail} onChange={e => setAdminSettings({...adminSettings, requireDemoEmail: e.target.checked})} style={{width: '20px', height: '20px', accentColor: theme.green}} />
+              </label>
+              <p style={{fontSize: '12px', color: '#9CA3AF', marginBottom: '16px'}}>ON = Users enter email before demo. OFF = Instant access.</p>
+              <h4 style={{fontWeight: '500', fontSize: '14px', marginBottom: '8px', color: theme.green}}>Captured Emails ({adminSettings.captureDemoEmails.length})</h4>
+              <div style={{maxHeight: '160px', overflowY: 'auto', fontSize: '12px', backgroundColor: '#001428', padding: '8px', borderRadius: '6px'}}>
+                {adminSettings.captureDemoEmails.map((e, i) => <div key={i} style={{padding: '4px 0', borderBottom: '1px solid #002855'}}>{e.email} • {e.date.slice(0,10)}</div>)}
+                {adminSettings.captureDemoEmails.length === 0 && <p style={{color: '#6B7280'}}>No emails captured yet</p>}
+              </div>
+              {adminSettings.captureDemoEmails.length > 0 && (
+                <button onClick={() => {
+                  const csv = 'Email,Date\n' + adminSettings.captureDemoEmails.map(e => `${e.email},${e.date}`).join('\n')
+                  const blob = new Blob([csv], {type: 'text/csv'})
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'demo-emails.csv'
+                  a.click()
+                }} style={{marginTop: '8px', fontSize: '14px', color: '#3B82F6', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer'}}>Download CSV</button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MODALS */}
+      {showModal === 'partial-payment' && (
+        <div style={styles.modal} onClick={() => setShowModal(null)}>
+          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{fontWeight: 'bold', fontSize: '18px', marginBottom: '16px', color: theme.green}}>Partial Payment</h3>
+            <label style={styles.label}>Amount</label>
+            <input type="number" value={partialPayment.amount} onChange={e => setPartialPayment({...partialPayment, amount: e.target.value})} style={styles.input} placeholder="Amount" />
+            <label style={styles.label}>Source</label>
+            <select value={partialPayment.source} onChange={e => setPartialPayment({...partialPayment, source: e.target.value})} style={styles.input}>
+              <option>Tenant</option>
+              <option>HUD</option>
+              <option>Other</option>
+            </select>
+            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
+              <button onClick={() => setShowModal(null)} style={{...styles.btnSecondary, flex: 1}}>Cancel</button>
+              <button onClick={() => markPaid(editingItem, parseFloat(partialPayment.amount), partialPayment.source)} style={{...styles.btn, flex: 1}}>Post Payment</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'property' && (
+        <div style={styles.modal} onClick={() => setShowModal(null)}>
+          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{fontWeight: 'bold', fontSize: '18px', marginBottom: '16px', color: theme.green}}>{editingItem? 'Edit' : 'Add'} Property</h3>
+            <label style={styles.label}>Property Name</label>
+            <input value={propertyForm.name} onChange={e => setPropertyForm({...propertyForm, name: e.target.value})} style={styles.input} placeholder="Property Name" />
+            <label style={styles.label}>Address</label>
+            <input value={propertyForm.address} onChange={e => setPropertyForm({...propertyForm, address: e.target.value})} style={styles.input} placeholder="Address" />
+            <label style={styles.label}>Entity</label>
+            <select value={propertyForm.entityId} onChange={e => setPropertyForm({...propertyForm, entityId: e.target.value})} style={styles.input}>
+              {entities.filter(e => e.active).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px'}}>
+              <div>
+                <label style={styles.label}>Rent</label>
+                <input type="number" value={propertyForm.rent} onChange={e => setPropertyForm({...propertyForm, rent: e.target.value})} style={styles.input} placeholder="Rent" />
+              </div>
+              <div>
+                <label style={styles.label}>HUD Amount</label>
+                <input type="number" value={propertyForm.hud} onChange={e => setPropertyForm({...propertyForm, hud: e.target.value})} style={styles.input} placeholder="HUD" />
+              </div>
+            </div>
+            <label style={styles.label}>Status</label>
+            <select value={propertyForm.status} onChange={e => setPropertyForm({...propertyForm, status: e.target.value})} style={styles.input}>
+              <option>Vacant</option>
+              <option>Rented</option>
+              <option>For Sale</option>
+            </select>
+            <label style={styles.label}>Tenant Name</label>
+            <input value={propertyForm.tenant} onChange={e => setPropertyForm({...propertyForm, tenant: e.target.value})} style={styles.input} placeholder="Tenant Name" />
+            <label style={styles.label}>Lease Signed By</label>
+            <input value={propertyForm.signedBy} onChange={e => setPropertyForm({...propertyForm, signedBy: e.target.value})} style={styles.input} placeholder="Signed By" />
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px'}}>
+              <div>
+                <label style={styles.label}>Lease Start</label>
+                <input type="date" value={propertyForm.leaseStart} onChange={e => setPropertyForm({...propertyForm, leaseStart: e.target.value})} style={styles.input} />
+              </div>
+              <div>
+                <label style={styles.label}>Lease End</label>
+                <input type="date" value={propertyForm.leaseEnd} onChange={e => setPropertyForm({...propertyForm, leaseEnd: e.target.value})} style={styles.input} />
+              </div>
+            </div>
+            
+            <h4 style={{fontWeight: '500', fontSize: '14px', marginTop: '16px', marginBottom: '8px', color: theme.green}}>Occupants</h4>
+            {propertyForm.occupants.map((occ, idx) => (
+              <div key={idx} style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                <input value={occ.name} onChange={e => {
+                  const newOcc = [...propertyForm.occupants]
+                  newOcc[idx].name = e.target.value
+                  setPropertyForm({...propertyForm, occupants: newOcc})
+                }} style={{...styles.input, marginBottom: 0}} placeholder="Name" />
+                <select value={occ.relation} onChange={e => {
+                  const newOcc = [...propertyForm.occupants]
+                  newOcc[idx].relation = e.target.value
+                  setPropertyForm({...propertyForm, occupants: newOcc})
+                }} style={{...styles.input, marginBottom: 0}}>
+                  <option>Spouse</option>
+                  <option>Child</option>
+                  <option>Parent</option>
+                  <option>Sibling</option>
+                  <option>Roommate</option>
+                  <option>Other</option>
+                </select>
+                <button onClick={() => setPropertyForm({...propertyForm, occupants: propertyForm.occupants.filter((_, i) => i!== idx)})} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+              </div>
+            ))}
+            <button onClick={() => setPropertyForm({...propertyForm, occupants: [...propertyForm.occupants, {name: '', relation: 'Other'}]})} style={{fontSize: '14px', color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '16px'}}>+ Add Occupant</button>
+
+            <h4 style={{fontWeight: '500', fontSize: '14px', marginTop: '16px', marginBottom: '8px', color: theme.green}}>Recurring Payers (HUD/Other)</h4>
+            {propertyForm.recurringPayers.map((rec, idx) => (
+              <div key={idx} style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                <input value={rec.name} onChange={e => {
+                  const newRec = [...propertyForm.recurringPayers]
+                  newRec[idx].name = e.target.value
+                  setPropertyForm({...propertyForm, recurringPayers: newRec})
+                }} style={{...styles.input, marginBottom: 0, flex: 1}} placeholder="Payer Name" />
+                <input type="number" value={rec.amount} onChange={e => {
+                  const newRec = [...propertyForm.recurringPayers]
+                  newRec[idx].amount = parseFloat(e.target.value) || ''
+                  setPropertyForm({...propertyForm, recurringPayers: newRec})
+                }} style={{...styles.input, marginBottom: 0, width: '96px'}} placeholder="Amount" />
+                <button onClick={() => setPropertyForm({...propertyForm, recurringPayers: propertyForm.recurringPayers.filter((_, i) => i!== idx)})} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+              </div>
+            ))}
+            <button onClick={() => setPropertyForm({...propertyForm, recurringPayers: [...propertyForm.recurringPayers, {name: '', amount: ''}]})} style={{fontSize: '14px', color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '16px'}}>+ Add Recurring Payer</button>
+
+            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
+              <button onClick={() => setShowModal(null)} style={{...styles.btnSecondary, flex: 1}}>Cancel</button>
+              <button onClick={saveProperty} style={{...styles.btn, flex: 1}}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'expense' && (
+        <div style={styles.modal} onClick={() => setShowModal(null)}>
+          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{fontWeight: 'bold', fontSize: '18px', marginBottom: '16px', color: theme.green}}>Add Expense</h3>
+            <label style={styles.label}>Date</label>
+            <input type="date" value={expenseForm.date} onChange={e => setExpenseForm({...expenseForm, date: e.target.value})} style={styles.input} />
+            <label style={styles.label}>Amount</label>
+            <input type="number" value={expenseForm.amount} onChange={e => setExpenseForm({...expenseForm, amount: e.target.value})} style={styles.input} placeholder="Amount" />
+            <label style={styles.label}>Category</label>
+            <select value={expenseForm.category} onChange={e => setExpenseForm({...expenseForm, category: e.target.value, subcategory: ''})} style={styles.input}>
+              <option value="">Select Category</option>
+              {expenseCategories.map(c => <option key={c}>{c}</option>)}
+            </select>
+            {expenseForm.category === 'Energy Efficient Improvements' && (
+              <>
+                <label style={styles.label}>Energy Star Item</label>
+                <select value={expenseForm.subcategory} onChange={e => setExpenseForm({...expenseForm, subcategory: e.target.value, energyStar: true, federalCredit: true})} style={styles.input}>
+                  <option value="">Select Energy Star Item</option>
+                  {energyCategories.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </>
+            )}
+            <label style={styles.label}>Property</label>
+            <select value={expenseForm.propertyId} onChange={e => setExpenseForm({...expenseForm, propertyId: e.target.value})} style={styles.input}>
+              <option value="all">All Properties</option>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <label style={styles.label}>Entity</label>
+            <select value={expenseForm.entityId} onChange={e => setExpenseForm({...expenseForm, entityId: e.target.value})} style={styles.input}>
+              {entities.filter(e => e.active).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            <label style={styles.label}>Description</label>
+            <textarea value={expenseForm.description} onChange={e => setExpenseForm({...expenseForm, description: e.target.value})} style={{...styles.input, height: '80px'}} placeholder="Description" />
+            {expenseForm.energyStar && (
+              <div style={{backgroundColor: '#059669', padding: '12px', borderRadius: '6px', marginBottom: '12px'}}>
+                <label style={{display: 'flex', alignItems: 'center', marginBottom: '8px'}}>
+                  <input type="checkbox" checked={expenseForm.federalCredit} onChange={e => setExpenseForm({...expenseForm, federalCredit: e.target.checked})} style={{marginRight: '8px', width: '16px', height: '16px', accentColor: theme.green}} />
+                  <span style={{fontSize: '14px'}}>30% Federal Tax Credit (${(parseFloat(expenseForm.amount || 0) * 0.3).toFixed(2)})</span>
+                </label>
+                <label style={styles.label}>NYS Rebate Amount</label>
+                <input type="number" value={expenseForm.nysRebate} onChange={e => setExpenseForm({...expenseForm, nysRebate: e.target.value})} style={styles.input} placeholder="NYS Rebate" />
+              </div>
+            )}
+            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
+              <button onClick={() => setShowModal(null)} style={{...styles.btnSecondary, flex: 1}}>Cancel</button>
+              <button onClick={saveExpense} style={{...styles.btn, flex: 1}}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModal === 'mileage' && (
+        <div style={styles.modal} onClick={() => setShowModal(null)}>
+          <div style={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{fontWeight: 'bold', fontSize: '18px', marginBottom: '16px', color: theme.green}}>Log Mileage</h3>
+            <label style={styles.label}>Date</label>
+            <input type="date" value={mileageForm.date} onChange={e => setMileageForm({...mileageForm, date: e.target.value})} style={styles.input} />
+            <label style={styles.label}>From</label>
+            <input value={mileageForm.from} onChange={e => setMileageForm({...mileageForm, from: e.target.value})} style={styles.input} placeholder="From" />
+            <label style={styles.label}>To</label>
+            <select value={mileageForm.to} onChange={e => setMileageForm({...mileageForm, to: e.target.value})} style={styles.input}>
+              <option value="">Select Destination</option>
+              {Object.keys(profile.mileageDefaults).map(loc => <option key={loc} value={loc}>{loc} ({profile.mileageDefaults[loc]} mi)</option>)}
+            </select>
+            <label style={styles.label}>Purpose</label>
+            <select value={mileageForm.purpose} onChange={e => setMileageForm({...mileageForm, purpose: e.target.value})} style={styles.input}>
+              {tripPurposes.map(p => <option key={p}>{p}</option>)}
+            </select>
+            <label style={styles.label}>Trip Type</label>
+            <select value={mileageForm.tripType} onChange={e => setMileageForm({...mileageForm, tripType: e.target.value})} style={styles.input}>
+              <option>Round Trip</option>
+              <option>One Way</option>
+            </select>
+            <label style={styles.label}>Extra Miles</label>
+            <input type="number" value={mileageForm.extraMiles} onChange={e => setMileageForm({...mileageForm, extraMiles: e.target.value})} style={styles.input} placeholder="Extra Miles" />
+            
+            <h4 style={{fontWeight: '500', fontSize: '14px', marginTop: '16px', marginBottom: '8px', color: theme.green}}>Additional Stops</h4>
+            {mileageForm.stops.map((stop, idx) => (
+              <div key={idx} style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                <input value={stop.location} onChange={e => {
+                  const newStops = [...mileageForm.stops]
+                  newStops[idx].location = e.target.value
+                  setMileageForm({...mileageForm, stops: newStops})
+                }} style={{...styles.input, marginBottom: 0, flex: 1}} placeholder="Location" />
+                <input type="number" value={stop.miles} onChange={e => {
+                  const newStops = [...mileageForm.stops]
+                  newStops[idx].miles = e.target.value
+                  setMileageForm({...mileageForm, stops: newStops})
+                }} style={{...styles.input, marginBottom: 0, width: '80px'}} placeholder="Miles" />
+                <button onClick={() => setMileageForm({...mileageForm, stops: mileageForm.stops.filter((_, i) => i!== idx)})} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+              </div>
+            ))}
+            <button onClick={() => setMileageForm({...mileageForm, stops: [...mileageForm.stops, {location: '', miles: ''}]})} style={{fontSize: '14px', color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '16px'}}>+ Add Stop</button>
+
+            <label style={styles.label}>Entity</label>
+            <select value={mileageForm.entityId} onChange={e => setMileageForm({...mileageForm, entityId: e.target.value})} style={styles.input}>
+              {entities.filter(e => e.active).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            
+            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
+              <button onClick={() => setShowModal(null)} style={{...styles.btnSecondary, flex: 1}}>Cancel</button>
+              <button onClick={saveMileage} style={{...styles.btn, flex: 1}}>Save Trip</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: theme.navy, borderTop: `2px solid ${theme.green}`, display: 'flex', justifyContent: 'space-around', padding: '8px 0'}}>
+        {[{id: 'dashboard', icon: Home, label: 'Dashboard'}, {id: 'expenses', icon: TrendingUp, label: 'Expenses'}, {id: 'mileage', icon: Car, label: 'Mileage'}, {id: 'reports', icon: FileText, label: 'Reports'}].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer',
+            color: activeTab === tab.id? theme.green : theme.white
+          }}>
+            <tab.icon size={20} />
+            <span style={{fontSize: '12px', marginTop: '4px'}}>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default TaxSavvy

@@ -299,10 +299,20 @@ const TaxSavvy = () => {
       
       <div style={styles.header}>
         <div style={{maxWidth: '1280px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-          <div style={styles.logo}>
-            <div style={styles.dollar}>$</div>
-            <h1 style={{...styles.brand, margin: 0}}>TaxSavvy</h1>
-          </div>
+    <div onClick={() => setActiveTab('dashboard')} style={{display:'flex',alignItems:'center',cursor:'pointer'}}>
+  <div style={{marginRight:'8px',lineHeight:'1'}}>
+    <svg width="40" height="40" viewBox="0 0 40 40" style={{display:'block'}}>
+      <defs>
+        <clipPath id="dollarClipC">
+          <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="36" fontWeight="900" fontFamily="system-ui">$</text>
+        </clipPath>
+      </defs>
+      <rect width="40" height="40" fill="#39FF14" clipPath="url(#dollarClipC)" />
+      <rect width="40" height="40" fill="#EF4444" clipPath="url(#dollarClipC)" transform="rotate(45 20 20) translate(20,-20)" />
+    </svg>
+  </div>
+  <h1 style={{...styles.brand, margin:0}}>TaxSavvy</h1>
+</div>
           <button onClick={() => setShowMenu(!showMenu)} style={{background: 'none', border: 'none', color: theme.white, cursor: 'pointer'}}><Menu size={28} /></button>
         </div>
       </div>

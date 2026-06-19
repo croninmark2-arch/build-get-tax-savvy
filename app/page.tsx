@@ -251,8 +251,8 @@ const TaxSavvy = () => {
     return (
       <div style={{...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'}}>
         <div style={{...styles.card, maxWidth: '400px', width: '100%'}}>
-    <div onClick={() => setActiveTab('dashboard')} style={{display:'flex',alignItems:'center',cursor:'pointer'}}>
-  <div style={{marginRight:'8px',lineHeight:'1'}}>
+  <div style={styles.logo}>
+  <div style={{marginRight:'8px',lineHeight:'1',cursor:'pointer'}} onClick={() => setActiveTab('dashboard')}>
     <svg width="40" height="40" viewBox="0 0 40 40" style={{display:'block'}}>
       <defs>
         <clipPath id="dollarClipA">

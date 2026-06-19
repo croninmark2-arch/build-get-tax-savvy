@@ -909,3 +909,48 @@ export default TaxSavvy
 }
 
 export default TaxSavvy
+              <div key={idx} style={{display: 'flex', gap: '8px', marginBottom: '8px'}}>
+                <input value={stop.location} onChange={e => {
+                  const newStops = [...mileageForm.stops]
+                  newStops[idx].location = e.target.value
+                  setMileageForm({...mileageForm, stops: newStops})
+                }} style={{...styles.input, marginBottom: 0, flex: 1}} placeholder="Location" />
+                <input type="number" value={stop.miles} onChange={e => {
+                  const newStops = [...mileageForm.stops]
+                  newStops[idx].miles = e.target.value
+                  setMileageForm({...mileageForm, stops: newStops})
+                }} style={{...styles.input, marginBottom: 0, width: '80px'}} placeholder="Miles" />
+                <button onClick={() => setMileageForm({...mileageForm, stops: mileageForm.stops.filter((_, i) => i!== idx)})} style={{background: 'none', border: 'none', cursor: 'pointer'}}><Trash2 size={16} style={{color: '#DC2626'}} /></button>
+              </div>
+            ))}
+            <button onClick={() => setMileageForm({...mileageForm, stops: [...mileageForm.stops, {location: '', miles: ''}]})} style={{fontSize: '14px', color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', marginBottom: '16px'}}>+ Add Stop</button>
+
+            <label style={styles.label}>Entity</label>
+            <select value={mileageForm.entityId} onChange={e => setMileageForm({...mileageForm, entityId: e.target.value})} style={styles.input}>
+              {entities.filter(e => e.active).map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+            
+            <div style={{display: 'flex', gap: '8px', marginTop: '16px'}}>
+              <button onClick={() => setShowModal(null)} style={{...styles.btnSecondary, flex: 1}}>Cancel</button>
+              <button onClick={saveMileage} style={{...styles.btn, flex: 1}}>Save Trip</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{position: 'fixed', bottom: 0, left: 0, right: 0, backgroundColor: theme.navy, borderTop: `2px solid ${theme.green}`, display: 'flex', justifyContent: 'space-around', padding: '8px 0'}}>
+        {[{id: 'dashboard', icon: Home, label: 'Dashboard'}, {id: 'expenses', icon: TrendingUp, label: 'Expenses'}, {id: 'mileage', icon: Car, label: 'Mileage'}, {id: 'reports', icon: FileText, label: 'Reports'}].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer',
+            color: activeTab === tab.id? theme.green : theme.white
+          }}>
+            <tab.icon size={20} />
+            <span style={{fontSize: '12px', marginTop: '4px'}}>{tab.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default TaxSavvy

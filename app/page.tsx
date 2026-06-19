@@ -280,10 +280,20 @@ const TaxSavvy = () => {
     return (
       <div style={{...styles.page, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'}}>
         <div style={{...styles.card, maxWidth: '400px', width: '100%'}}>
-          <div style={styles.logo}>
-            <div style={styles.dollar}>$</div>
-            <h1 style={{...styles.brand, margin: 0}}>TaxSavvy {isDemo && <span style={{fontSize: '14px', color: theme.white}}>DEMO</span>}</h1>
-          </div>
+  <div onClick={() => setActiveTab('dashboard')} style={{display:'flex',alignItems:'center',cursor:'pointer'}}>
+  <div style={{marginRight:'8px',lineHeight:'1'}}>
+    <svg width="40" height="40" viewBox="0 0 40 40" style={{display:'block'}}>
+      <defs>
+        <clipPath id="dollarClipB">
+          <text x="50%" y="50%" dominantBaseline="middle" textAnchor="middle" fontSize="36" fontWeight="900" fontFamily="system-ui">$</text>
+        </clipPath>
+      </defs>
+      <rect width="40" height="40" fill="#39FF14" clipPath="url(#dollarClipB)" />
+      <rect width="40" height="40" fill="#EF4444" clipPath="url(#dollarClipB)" transform="rotate(45 20 20) translate(20,-20)" />
+    </svg>
+  </div>
+  <h1 style={{...styles.brand, margin:0}}>TaxSavvy {isDemo && <span style={{fontSize:'14px', color:theme.white}}>DEMO</span>}</h1>
+</div>
           <h2 style={{fontSize: '20px', fontWeight: '600', color: theme.green, margin: '16px 0'}}>Terms & Conditions</h2>
           <p style={{fontSize: '14px', color: theme.white, marginBottom: '16px', lineHeight: '1.5'}}>TaxSavvy tracks expenses and mileage for tax purposes. You are responsible for accuracy. TaxSavvy does not provide tax advice.</p>
           <a href="#" style={{color: theme.green, fontSize: '14px', textDecoration: 'underline', marginBottom: '24px', display: 'block'}}>Read Full Terms & Conditions</a>

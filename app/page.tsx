@@ -147,22 +147,23 @@ const TaxSavvy = () => {
     setShowModal(null)
     setPartialPayment({ amount: '', source: 'Tenant' })
   }
-
-  const saveExpense = () => {
-    if (!expenseForm.amount ||!expenseForm.category) { showToastMsg('Enter amount and category'); return }
-    const isEnergyStar = energyCategories.includes(expenseForm.subcategory)
-    const isCapital = ['Capital Improvement',...energyCategories].includes(expenseForm.category) || isEnergyStar
-    const newExpense = {
-      id: Date.now(),...expenseForm, amount: parseFloat(expenseForm.amount),
-      isEnergyStar, isCapital, entityId: parseInt(expenseForm.entityId),
-      propertyId: expenseForm.propertyId === 'all'? 'all' : parseInt(expenseForm.propertyId),
-      federalCreditAmount: expenseForm.federalCredit? parseFloat(expenseForm.amount) * 0.3 : 0,
-      nysRebateAmount: parseFloat(expenseForm.nysRebate || 0)
-    }
-    if (isCapital) setCapitalImprovements([...capitalImprovements, newExpense])
-    else setExpenses([...expenses, newExpense])
-    setShowModal(null)
-    setExpenseForm({...expenseForm, amount: '', description: '', receipt: null, nysRebate: 0, subcategory: '', federalCredit: false, energyStar: false})
+  // TC GATE - FORCED INLINE STYLES - NO TAILWIND
+  if (!tcAccepted) {
+    return (
+      <div style={{minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: '#F3F4F6', fontFamily: 'system-ui'}}>
+        <div style={{backgroundColor: '#FFFFFF', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', maxWidth: '400px', width: '100%', padding: '24px'}}>
+          <div style={{display: 'flex', alignItems: 'center', marginBottom: '16px'}}>
+            <div style={{fontSize: '32px', fontWeight: 'bold', marginRight: '8px', color: '#001F3F'}}>$</div>
+            <h1 style={{fontSize: '24px', fontWeight: 'bold', color: '#39FF14', margin: 0}}>TaxSavvy {isDemo && <span style={{fontSize: '14px', color: '#6B7280'}}>DEMO</span>}</h1>
+          </div>
+          <h2 style={{fontSize: '20px', fontWeight: '600', marginBottom: '16px', color: '#111827'}}>Terms & Conditions</h2>
+          <p style={{fontSize: '14px', color: '#4B5563', marginBottom: '16px', lineHeight: '1.5'}}>TaxSavvy tracks expenses and mileage for tax purposes. You are responsible for accuracy. TaxSavvy does not provide tax advice.</p>
+          <a href="#" style={{color: '#2563EB', fontSize: '14px', textDecoration: 'underline', marginBottom: '24px', display: 'block'}}>Read Full Terms & Conditions</a>
+          <button onClick={acceptTC} style={{width: '100%', padding: '12px 16px', borderRadius: '8px', fontWeight: '600', fontSize: '16px', backgroundColor: '#001F3F', color: '#FFFFFF', border: 'none', cursor: 'pointer'}}>Accept Full Terms & Conditions</button>
+        </div>
+      </div>
+    )
+  }
     showToastMsg('Expense saved')
   }
 

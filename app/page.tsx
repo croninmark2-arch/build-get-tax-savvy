@@ -548,53 +548,7 @@ export default function Page() {
       notes: "",
       propertyIdA: "",
       propertyIdB: "",
-      splitA: "",
-      splitB: "",
-      splitMode: "single",
-    });
-
-    setToast("Expense updated");
-    setTimeout(() => setToast(""), 1600);
-  };
-
-  const startTrial = () => {
-    if (state.toggles.emailCapture && !state.trial.email) return;
-    if (state.toggles.phoneCapture && !state.trial.phone) return;
-    setState((prev) => ({ ...prev, trial: { ...prev.trial, startedAt: Date.now() } }));
-    setToast("Trial started");
-    setTimeout(() => setToast(""), 1600);
-  };
-
-  const currentTheme = {
-    navy: "#1f3153",
-    green: "#39ff14",
-    red: "#ff2d2d",
-    white: "#ffffff",
-    bg: "#f4f7fb",
-    text: "#111827",
-  };
-
-  const cardStyle = {
-    background: currentTheme.navy,
-    color: currentTheme.white,
-    borderRadius: 22,
-    padding: 18,
-    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-    border: "1px solid rgba(255,255,255,0.08)",
-  } as React.CSSProperties;
-
-  const boxStyle = {
-    background: "#fff",
-    borderRadius: 18,
-    padding: 18,
-    border: "1px solid #dbe2ea",
-    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-  } as React.CSSProperties;
-
-  const brandBoxStyle = {
-    background: currentTheme.navy,
-    color: currentTheme.white,
-    borderRadius: 18,
+6
     padding: 18,
     border: "1px solid rgba(255,255,255,0.1)",
   } as React.CSSProperties;

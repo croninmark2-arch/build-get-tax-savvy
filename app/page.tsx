@@ -1,814 +1,1085 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
-type Tab =
+type EntityType = "personal" | "llc" | "corporation" | "demo" | "trial";
+type TabKey =
   | "dashboard"
   | "properties"
   | "expenses"
   | "reports"
-  | "homeoffice"
   | "settings"
-  | "upgrade"
-  | "demo";
+  | "demo"
+  | "trial"
+  | "corporate"
+  | "personal"
+  | "rentals";
 
-type Mode = "live" | "demo";
+type ToggleFlags = {
+  emailCapture: boolean;
+  phoneCapture: boolean;
+  creditCardCapture: boolean;
+  stripeEnabled: boolean;
+  termsEnabled: boolean;
+  cancellationEnabled: boolean;
+};
 
 type Property = {
-  id: number;
+  id: string;
+  entity: EntityType;
   name: string;
-  address: string;
-  owner: string;
-  rent: number;
-  tenant: string;
-  isPersonal: boolean;
-  leaseName?: string;
-  leaseUrl?: string;
+  address1: string;
+  city: string;
+  state: string;
+  zip: string;
+  ownerName: string;
+  ownershipGroup: string;
+  rentDue: number;
+  currentBalance: number;
+  ytdCollected: number;
+  paymentMethod: string;
+  leaseType: "month-to-month" | "fixed";
+  leaseStart: string;
+  leaseEnd: string;
+  leaseNoticeDays: number;
+  tenantName: string;
+  tenantPhone: string;
+  tenantEmployer: string;
+  additionalFamilyMembers: string;
+  yearPurchased: string;
+  monthPurchased: string;
+  notes: string;
+  monthStatus: string;
+  lastPaymentDate: string;
+  lastPaymentAmount: number;
+  paymentHistory: { date: string; amount: number; method: string; note: string }[];
+  taxData: {
+    homeownersInsurance: number;
+    villageTax: number;
+    townCountyTax: number;
+    schoolTax: number;
+    totalPropertyTax: number;
+    utilitiesGas: number;
+    utilitiesElectric: number;
+    utilitiesWaterSewer: number;
+    utilitiesTrash: number;
+  };
+};
+
+type ExpenseSplit = {
+  propertyId: string;
+  amount: number;
+  note: string;
 };
 
 type Expense = {
-  id: number;
+  id: string;
   date: string;
   vendor: string;
-  amount: number;
   category: string;
-  propertyIds: number[];
-  splitType: "even" | "units" | "custom" | "single";
+  amount: number;
+  paymentMethod: string;
   notes: string;
+  splits: ExpenseSplit[];
 };
 
 type Accountant = {
-  id: number;
+  id: string;
   name: string;
   title: string;
   email: string;
-  primary?: boolean;
+  primary: boolean;
 };
 
 type HomeOfficeArea = {
-  id: number;
+  id: string;
   label: string;
-  sqft: string;
+  sqft: number;
   notes: string;
 };
 
-type TrialProfile = {
+type CompanyProfile = {
+  displayName: string;
+  legalName: string;
+  address: string;
+  supportEmail: string;
+  reportEmail: string;
+  phone: string;
+};
+
+type TrialInfo = {
   email: string;
+  phone: string;
   name: string;
-  company: string;
-  startAt: number | null;
-  trialDays: number;
+  startedAt: number | null;
+  days: number;
 };
 
 type AppState = {
-  appName: string;
-  tagline: string;
-  supportEmail: string;
-  brandNavy: string;
-  brandBlue: string;
-  brandGreen: string;
-  showTerms: boolean;
-  showCancelPolicy: boolean;
-  showPayments: boolean;
+  profile: CompanyProfile;
+  toggles: ToggleFlags;
+  trial: TrialInfo;
   properties: Property[];
   expenses: Expense[];
   accountants: Accountant[];
   homeOffices: HomeOfficeArea[];
-  trial: TrialProfile;
+  activeEntity: EntityType | "all";
+  activeTab: TabKey;
 };
 
-const DEMO_SEED: AppState = {
-  appName: "TaxSavvy",
-  tagline: "Tax Manager",
+const STORAGE_KEY = "taxsavvy_master_v1";
+
+const navItems: { key: TabKey; label: string }[] = [
+  { key: "dashboard", label: "Home" },
+  { key: "properties", label: "Properties" },
+  { key: "expenses", label: "Expenses" },
+  { key: "reports", label: "Reports" },
+  { key: "settings", label: "Settings" },
+  { key: "demo", label: "Invite / Demo" },
+  { key: "trial", label: "Trial" },
+  { key: "corporate", label: "Corporate" },
+  { key: "personal", label: "Personal" },
+  { key: "rentals", label: "Rentals" },
+];
+
+const defaultFlags: ToggleFlags = {
+  emailCapture: false,
+  phoneCapture: false,
+  creditCardCapture: false,
+  stripeEnabled: false,
+  termsEnabled: false,
+  cancellationEnabled: false,
+};
+
+const defaultProfile: CompanyProfile = {
+  displayName: "TaxSavvy",
+  legalName: "TaxSavvy",
+  address: "118 Daffodil Dr, Horseheads, NY 14845",
   supportEmail: "help@taxsavvy.app",
-  brandNavy: "#1b2a4a",
-  brandBlue: "#2f6fed",
-  brandGreen: "#4cff34",
-  showTerms: false,
-  showCancelPolicy: false,
-  showPayments: false,
-  properties: [
-    { id: 1, name: "Personal Home", address: "118 Daffodil Drive, Horseheads, NY", owner: "Mark Cronin", rent: 0, tenant: "", isPersonal: true },
-    { id: 2, name: "Rental A", address: "114 Orchard St, Horseheads, NY", owner: "Cronin NY Property Management LLC", rent: 1405, tenant: "Tenant A", isPersonal: false, leaseName: "Lease - Rental A", leaseUrl: "" },
-    { id: 3, name: "Duplex Unit A", address: "220 Elmwood Ave Unit A, Elmira Heights, NY", owner: "Cronin NY Property Management LLC", rent: 1400, tenant: "Tenant B", isPersonal: false },
-    { id: 4, name: "Duplex Unit B", address: "220 Elmwood Ave Unit B, Elmira Heights, NY", owner: "Cronin NY Property Management LLC", rent: 1100, tenant: "Tenant C", isPersonal: false },
-  ],
-  expenses: [
-    { id: 101, date: "2026-01-05", vendor: "Lowe's", amount: 245, category: "Repairs", propertyIds: [2], splitType: "single", notes: "Kitchen faucet" },
-    { id: 102, date: "2026-01-12", vendor: "NYSEG", amount: 132.4, category: "Utilities", propertyIds: [3, 4], splitType: "even", notes: "Shared utility" },
-  ],
-  accountants: [
-    { id: 1, name: "CPA Office", title: "CPA", email: "cpa@example.com", primary: true },
-    { id: 2, name: "Tax Helper", title: "Assistant", email: "helper@example.com" },
-  ],
-  homeOffices: [
-    { id: 1, label: "Main Office", sqft: "180", notes: "Primary office" },
-    { id: 2, label: "Garage Storage Area", sqft: "120", notes: "Tools, ladders, supplies" },
-  ],
-  trial: { email: "", name: "", company: "", startAt: null, trialDays: 14 },
+  reportEmail: "cronin.mark2@gmail.com",
+  phone: "",
 };
 
-const LIVE_SEED: AppState = {
-  appName: "TaxSavvy",
-  tagline: "Tax Manager",
-  supportEmail: "help@taxsavvy.app",
-  brandNavy: "#1b2a4a",
-  brandBlue: "#2f6fed",
-  brandGreen: "#4cff34",
-  showTerms: false,
-  showCancelPolicy: false,
-  showPayments: false,
-  properties: [
-    { id: 1, name: "Personal Home", address: "118 Daffodil Drive, Horseheads, NY", owner: "Mark Cronin", rent: 0, tenant: "", isPersonal: true },
-    { id: 2, name: "Orchard Street", address: "114 Orchard St, Horseheads, NY", owner: "Cronin NY Property Management LLC", rent: 1405, tenant: "", isPersonal: false, leaseName: "Lease - Orchard Street", leaseUrl: "" },
-    { id: 3, name: "Elmwood Unit A", address: "220 Elmwood Ave Unit A, Elmira Heights, NY", owner: "Cronin NY Property Management LLC", rent: 1400, tenant: "", isPersonal: false },
-    { id: 4, name: "Elmwood Unit B", address: "220 Elmwood Ave Unit B, Elmira Heights, NY", owner: "Cronin NY Property Management LLC", rent: 1100, tenant: "", isPersonal: false },
-    { id: 5, name: "Corning Building", address: "146 W. Fourth Street, Corning, NY", owner: "Mark & Tammi Cronin", rent: 1700, tenant: "", isPersonal: false },
-  ],
-  expenses: [],
-  accountants: [],
-  homeOffices: [],
-  trial: { email: "", name: "", company: "", startAt: null, trialDays: 14 },
+const defaultTrial: TrialInfo = {
+  email: "",
+  phone: "",
+  name: "",
+  startedAt: null,
+  days: 14,
 };
 
-const fmt = (n: number | string | undefined | null) =>
-  "$" + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n || 0));
+
+const id = () => Math.random().toString(36).slice(2, 11);
+
+const makeProperty = (overrides: Partial<Property> = {}): Property => ({
+  id: id(),
+  entity: "llc",
+  name: "New Property",
+  address1: "",
+  city: "",
+  state: "NY",
+  zip: "",
+  ownerName: "",
+  ownershipGroup: "LLC",
+  rentDue: 0,
+  currentBalance: 0,
+  ytdCollected: 0,
+  paymentMethod: "ACH",
+  leaseType: "month-to-month",
+  leaseStart: "",
+  leaseEnd: "",
+  leaseNoticeDays: 60,
+  tenantName: "",
+  tenantPhone: "",
+  tenantEmployer: "",
+  additionalFamilyMembers: "",
+  yearPurchased: "",
+  monthPurchased: "",
+  notes: "",
+  monthStatus: "Due",
+  lastPaymentDate: "",
+  lastPaymentAmount: 0,
+  paymentHistory: [],
+  taxData: {
+    homeownersInsurance: 0,
+    villageTax: 0,
+    townCountyTax: 0,
+    schoolTax: 0,
+    totalPropertyTax: 0,
+    utilitiesGas: 0,
+    utilitiesElectric: 0,
+    utilitiesWaterSewer: 0,
+    utilitiesTrash: 0,
+  },
+  ...overrides,
+});
+
+const defaultProperties: Property[] = [
+  makeProperty({
+    entity: "personal",
+    name: "118 Daffodil Dr",
+    address1: "118 Daffodil Dr",
+    city: "Horseheads",
+    state: "NY",
+    zip: "14845",
+    ownerName: "Private",
+    ownershipGroup: "Personal",
+    rentDue: 0,
+  }),
+  makeProperty({
+    entity: "llc",
+    name: "114 Orchard Street",
+    address1: "114 Orchard St",
+    city: "Horseheads",
+    state: "NY",
+    zip: "14845",
+    ownerName: "MCMC Properties LLC",
+    ownershipGroup: "LLC",
+    rentDue: 1405,
+    paymentMethod: "ACH",
+    leaseType: "fixed",
+    leaseStart: "2025-01-01",
+    leaseEnd: "2026-12-31",
+    leaseNoticeDays: 60,
+    tenantName: "Arbor Housing",
+    monthStatus: "Partial",
+    currentBalance: 10,
+    ytdCollected: 1395,
+  }),
+  makeProperty({
+    entity: "llc",
+    name: "220 Elmwood Unit A",
+    address1: "220 Elmwood Ave Unit A",
+    city: "Elmira Heights",
+    state: "NY",
+    zip: "14903",
+    ownerName: "MCMC Properties LLC",
+    ownershipGroup: "LLC",
+    rentDue: 1400,
+    tenantName: "Tenant A",
+  }),
+  makeProperty({
+    entity: "llc",
+    name: "220 Elmwood Unit B",
+    address1: "220 Elmwood Ave Unit B",
+    city: "Elmira Heights",
+    state: "NY",
+    zip: "14903",
+    ownerName: "MCMC Properties LLC",
+    ownershipGroup: "LLC",
+    rentDue: 1100,
+    tenantName: "Tenant B",
+    leaseType: "month-to-month",
+    leaseNoticeDays: 30,
+  }),
+  makeProperty({
+    entity: "corporation",
+    name: "MCMC Properties Inc",
+    address1: "118 Daffodil Dr",
+    city: "Horseheads",
+    state: "NY",
+    zip: "14845",
+    ownerName: "MCMC Properties Inc",
+    ownershipGroup: "Corporation",
+    rentDue: 0,
+  }),
+];
+
+const defaultExpenses: Expense[] = [
+  {
+    id: id(),
+    date: "2026-06-01",
+    vendor: "Lowe's",
+    category: "Repairs",
+    amount: 1275,
+    paymentMethod: "Card",
+    notes: "Painting garage for Unit A and Unit B",
+    splits: [
+      { propertyId: defaultProperties[2].id, amount: 637.5, note: "Half" },
+      { propertyId: defaultProperties[3].id, amount: 637.5, note: "Half" },
+    ],
+  },
+];
+
+const defaultAccountants: Accountant[] = [
+  { id: id(), name: "CPA Office", title: "CPA", email: "cpa@example.com", primary: true },
+  { id: id(), name: "Helper", title: "Assistant", email: "helper@example.com", primary: false },
+];
+
+const defaultHomeOffices: HomeOfficeArea[] = [
+  { id: id(), label: "Main Office", sqft: 180, notes: "Used for rental management" },
+  { id: id(), label: "Garage Storage", sqft: 120, notes: "Tools, ladders, supplies" },
+];
+
+const initialState: AppState = {
+  profile: defaultProfile,
+  toggles: defaultFlags,
+  trial: defaultTrial,
+  properties: defaultProperties,
+  expenses: defaultExpenses,
+  accountants: defaultAccountants,
+  homeOffices: defaultHomeOffices,
+  activeEntity: "all",
+  activeTab: "dashboard",
+};
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<Mode>("live");
-  const [tab, setTab] = useState<Tab>("dashboard");
-  const [state, setState] = useState<AppState>(LIVE_SEED);
-  const [trialEmail, setTrialEmail] = useState("");
-  const [trialName, setTrialName] = useState("");
-  const [trialCompany, setTrialCompany] = useState("");
-  const [trialMsg, setTrialMsg] = useState("");
+  const [state, setState] = useState<AppState>(initialState);
   const [toast, setToast] = useState("");
-  const [reportText, setReportText] = useState("Choose a report to generate.");
-  const [expenseVendor, setExpenseVendor] = useState("");
-  const [expenseAmount, setExpenseAmount] = useState("");
-  const [expenseCategory, setExpenseCategory] = useState("Repairs");
-  const [expenseNotes, setExpenseNotes] = useState("");
-  const [expensePropertyIds, setExpensePropertyIds] = useState<number[]>([]);
-  const [emailTarget, setEmailTarget] = useState("");
-  const [showTrialPopup, setShowTrialPopup] = useState(false);
-
-  const storageKey = useMemo(() => (mode === "demo" ? "taxsavvy_demo_v1" : "taxsavvy_live_v1"), [mode]);
-
-  const darkNavy = state.brandNavy || "#1b2a4a";
-  const blue = state.brandBlue || "#2f6fed";
-  const green = state.brandGreen || "#4cff34";
-
-  const properties = state.properties;
-  const activeTrialDaysLeft = useMemo(() => {
-    if (!state.trial.startAt) return state.trial.trialDays;
-    const elapsed = Date.now() - state.trial.startAt;
-    const total = state.trial.trialDays * 24 * 60 * 60 * 1000;
-    return Math.max(0, Math.ceil((total - elapsed) / (24 * 60 * 60 * 1000)));
-  }, [state.trial.startAt, state.trial.trialDays]);
-
-  const activeTrialTimeLeft = useMemo(() => {
-    if (!state.trial.startAt) return "";
-    const total = state.trial.trialDays * 24 * 60 * 60 * 1000;
-    const remaining = Math.max(0, total - (Date.now() - state.trial.startAt));
-    const d = Math.floor(remaining / (24 * 60 * 60 * 1000));
-    const h = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-    const m = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-    const s = Math.floor((remaining % (60 * 1000)) / 1000);
-    return `${d} days, ${h} hours, ${m} minutes, ${s} seconds`;
-  }, [state.trial.startAt, state.trial.trialDays]);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showCancellation, setShowCancellation] = useState(false);
+  const [showTrialBanner, setShowTrialBanner] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+  const [liveMode, setLiveMode] = useState(true);
+  const [newExpense, setNewExpense] = useState({
+    vendor: "",
+    category: "Repairs",
+    amount: "",
+    method: "ACH",
+    notes: "",
+    propertyIdA: "",
+    propertyIdB: "",
+    splitA: "",
+    splitB: "",
+    splitMode: "single",
+  });
 
   useEffect(() => {
-    const savedMode = (localStorage.getItem("taxsavvy_mode") as Mode | null) || "live";
-    setMode(savedMode);
-    const key = savedMode === "demo" ? "taxsavvy_demo_v1" : "taxsavvy_live_v1";
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as AppState;
-        setState(parsed);
-        setTrialEmail(parsed.trial.email || "");
-        setTrialName(parsed.trial.name || "");
-        setTrialCompany(parsed.trial.company || "");
-      } catch {
-        setState(savedMode === "demo" ? DEMO_SEED : LIVE_SEED);
-      }
-    } else {
-      setState(savedMode === "demo" ? DEMO_SEED : LIVE_SEED);
-    }
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setState(JSON.parse(raw));
+    } catch {}
     setMounted(true);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    localStorage.setItem("taxsavvy_mode", mode);
-    localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [mounted, mode, storageKey, state]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state, mounted]);
+
+  const activeProperties = useMemo(() => {
+    if (state.activeEntity === "all") return state.properties;
+    return state.properties.filter((p) => p.entity === state.activeEntity);
+  }, [state.activeEntity, state.properties]);
+
+  const ytdTotalRent = useMemo(
+    () => activeProperties.reduce((sum, p) => sum + (p.ytdCollected || 0), 0),
+    [activeProperties]
+  );
+
+  const totalBalance = useMemo(
+    () => activeProperties.reduce((sum, p) => sum + (p.currentBalance || 0), 0),
+    [activeProperties]
+  );
+
+  const totalTaxes = useMemo(
+    () =>
+      activeProperties.reduce(
+        (sum, p) => sum + (p.taxData.totalPropertyTax || 0),
+        0
+      ),
+    [activeProperties]
+  );
+
+  const totalInsurance = useMemo(
+    () =>
+      activeProperties.reduce(
+        (sum, p) => sum + (p.taxData.homeownersInsurance || 0),
+        0
+      ),
+    [activeProperties]
+  );
+
+  const trialRemaining = useMemo(() => {
+    if (!state.trial.startedAt) return state.trial.days;
+    const elapsed = Date.now() - state.trial.startedAt;
+    const left = state.trial.days * 24 * 60 * 60 * 1000 - elapsed;
+    return Math.max(0, Math.ceil(left / (24 * 60 * 60 * 1000)));
+  }, [state.trial.startedAt, state.trial.days]);
+
+  const trialCountdown = useMemo(() => {
+    if (!state.trial.startedAt) return "14 days, 0 hours, 0 minutes, 0 seconds";
+    const total = state.trial.days * 24 * 60 * 60 * 1000;
+    const left = Math.max(0, total - (Date.now() - state.trial.startedAt));
+    const d = Math.floor(left / (24 * 60 * 60 * 1000));
+    const h = Math.floor((left % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    const m = Math.floor((left % (60 * 60 * 1000)) / (60 * 1000));
+    const s = Math.floor((left % (60 * 1000)) / 1000);
+    return `${d} days, ${h} hours, ${m} minutes, ${s} seconds`;
+  }, [state.trial.startedAt, state.trial.days]);
 
   useEffect(() => {
-    if (!mounted || !state.trial.startAt) return;
     const t = setInterval(() => {
-      const elapsed = Date.now() - state.trial.startAt!;
-      const total = state.trial.trialDays * 24 * 60 * 60 * 1000;
-      const remaining = total - elapsed;
-      if (remaining <= 3 * 24 * 60 * 60 * 1000 && remaining > 0) setShowTrialPopup(true);
-      if (remaining <= 0) setShowTrialPopup(true);
       setState((p) => ({ ...p }));
+      if (state.trial.startedAt && trialRemaining <= 3) setShowTrialBanner(true);
     }, 1000);
     return () => clearInterval(t);
-  }, [mounted, state.trial.startAt, state.trial.trialDays]);
+  }, [state.trial.startedAt, trialRemaining]);
 
-  const notify = (msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(""), 1800);
+  const save = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setToast("Saved");
+    setTimeout(() => setToast(""), 1600);
   };
 
-  const saveNow = () => {
-    localStorage.setItem(storageKey, JSON.stringify(state));
-    notify("Saved");
+  const addProperty = (entity: EntityType) => {
+    const p = makeProperty({ entity, ownershipGroup: entity.toUpperCase() });
+    setState((prev) => ({ ...prev, properties: [p, ...prev.properties] }));
   };
 
-  const toggleMode = () => {
-    const next = mode === "live" ? "demo" : "live";
-    setMode(next);
-    setTab("dashboard");
-  };
-
-  const updateTrial = () => {
-    if (!trialEmail.trim()) return notify("Email is required");
-    const nextTrial = {
-      email: trialEmail.trim(),
-      name: trialName.trim(),
-      company: trialCompany.trim(),
-      startAt: state.trial.startAt || Date.now(),
-      trialDays: 14,
-    };
-    setState((p) => ({ ...p, trial: nextTrial }));
-    setTrialMsg("Trial started");
-    notify("Trial saved");
-    setShowTrialPopup(false);
-  };
-
-  const setTrialStartNow = () => {
-    if (!trialEmail.trim()) return notify("Email is required");
-    setState((p) => ({
-      ...p,
-      trial: {
-        email: trialEmail.trim(),
-        name: trialName.trim(),
-        company: trialCompany.trim(),
-        startAt: Date.now(),
-        trialDays: 14,
-      },
+  const updateProperty = (propertyId: string, updater: (p: Property) => Property) => {
+    setState((prev) => ({
+      ...prev,
+      properties: prev.properties.map((p) => (p.id === propertyId ? updater(p) : p)),
     }));
-    notify("14-day trial started");
   };
 
-  const addExpense = () => {
-    const amount = Number(expenseAmount || 0);
-    if (!expenseVendor.trim() || !amount || !expensePropertyIds.length) return notify("Fill vendor, amount, and property");
-    setState((p) => ({
-      ...p,
-      expenses: [
-        {
-          id: Date.now(),
-          date: new Date().toISOString().slice(0, 10),
-          vendor: expenseVendor.trim(),
-          amount,
-          category: expenseCategory,
-          propertyIds: expensePropertyIds,
-          splitType: expensePropertyIds.length > 1 ? "even" : "single",
-          notes: expenseNotes.trim(),
-        },
-        ...p.expenses,
+  const deleteProperty = (propertyId: string) => {
+    setState((prev) => ({
+      ...prev,
+      properties: prev.properties.filter((p) => p.id !== propertyId),
+    }));
+  };
+
+  const addHomeOfficeArea = () => {
+    setState((prev) => ({
+      ...prev,
+      homeOffices: [
+        { id: id(), label: "New Area", sqft: 0, notes: "" },
+        ...prev.homeOffices,
       ],
     }));
-    setExpenseVendor("");
-    setExpenseAmount("");
-    setExpenseNotes("");
-    setExpensePropertyIds([]);
-    notify("Expense added");
-  };
-
-  const addProperty = () => {
-    const id = Math.max(0, ...state.properties.map((p) => p.id)) + 1;
-    setState((p) => ({
-      ...p,
-      properties: [...p.properties, { id, name: "New Property", address: "New Address", owner: "", rent: 0, tenant: "", isPersonal: false }],
-    }));
-    notify("Property added");
   };
 
   const addAccountant = () => {
-    setState((p) => {
-      const nextId = Math.max(0, ...p.accountants.map((a) => a.id)) + 1;
-      return {
-        ...p,
-        accountants: [...p.accountants, { id: nextId, name: "New Contact", title: "CPA", email: "", primary: p.accountants.length === 0 }],
-      };
-    });
+    setState((prev) => ({
+      ...prev,
+      accountants: [
+        { id: id(), name: "New Contact", title: "CPA", email: "", primary: false },
+        ...prev.accountants,
+      ],
+    }));
   };
 
-  const runReport = (type: string) => {
-    const totalIncome = state.properties.reduce((s, p) => s + Number(p.rent || 0), 0);
-    const totalExpenses = state.expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const totalRental = totalIncome - totalExpenses;
-    const officeSqft = state.homeOffices.reduce((s, o) => s + Number(o.sqft || 0), 0);
+  const updateExpenseField = (field: string, value: string) => {
+    setNewExpense((prev) => ({ ...prev, [field]: value }));
+  };
 
-    if (type === "pl") {
-      setReportText(`P&L Report
-Income: ${fmt(totalIncome)}
-Expenses: ${fmt(totalExpenses)}
-Net: ${fmt(totalRental)}`);
-    } else if (type === "schedulee") {
-      setReportText(`Schedule E
-Rental income: ${fmt(totalIncome)}
-Rental expenses: ${fmt(totalExpenses)}
-Net: ${fmt(totalRental)}`);
-    } else if (type === "schedulea") {
-      setReportText(`Schedule A
-Personal deductions and itemized items can be summarized here.`);
-    } else if (type === "homeoffice") {
-      setReportText(`Home Office Summary
-Areas: ${state.homeOffices.length}
-Total office sqft: ${officeSqft}`);
-    } else if (type === "mileage") {
-      setReportText(`Mileage Report
-Add mileage tracking here for property visits and business travel.`);
+  const addExpense = () => {
+    const amount = Number(newExpense.amount || 0);
+    const splitA = Number(newExpense.splitA || 0);
+    const splitB = Number(newExpense.splitB || 0);
+
+    let splits: ExpenseSplit[] = [];
+    if (newExpense.splitMode === "double" && newExpense.propertyIdA && newExpense.propertyIdB) {
+      const totalSplit = splitA + splitB || amount;
+      const a = splitA || amount / 2;
+      const b = splitB || amount / 2;
+      splits = [
+        { propertyId: newExpense.propertyIdA, amount: a, note: "Split A" },
+        { propertyId: newExpense.propertyIdB, amount: b, note: "Split B" },
+      ];
+      if (Math.abs(totalSplit - amount) > 0.01) {
+        setToast("Split total should match amount");
+        setTimeout(() => setToast(""), 1800);
+        return;
+      }
+    } else if (newExpense.propertyIdA) {
+      splits = [{ propertyId: newExpense.propertyIdA, amount, note: "Single" }];
     }
-    notify("Report generated");
+
+    const expense: Expense = {
+      id: id(),
+      date: new Date().toISOString().slice(0, 10),
+      vendor: newExpense.vendor,
+      category: newExpense.category,
+      amount,
+      paymentMethod: newExpense.method,
+      notes: newExpense.notes,
+      splits,
+    };
+
+    setState((prev) => ({
+      ...prev,
+      expenses: [expense, ...prev.expenses],
+    }));
+
+    setNewExpense({
+      vendor: "",
+      category: "Repairs",
+      amount: "",
+      method: "ACH",
+      notes: "",
+      propertyIdA: "",
+      propertyIdB: "",
+      splitA: "",
+      splitB: "",
+      splitMode: "single",
+    });
+
+    setToast("Expense added");
+    setTimeout(() => setToast(""), 1600);
   };
 
-  const sendReportToAccountant = () => {
-    const selected = state.accountants.find((a) => a.email === emailTarget) || state.accountants.find((a) => a.primary) || state.accountants[0];
-    if (!selected) return notify("Add an accountant contact first");
-    notify(`Prepared to send to ${selected.name}`);
+  const startTrial = () => {
+    if (state.toggles.emailCapture && !state.trial.email) return;
+    if (state.toggles.phoneCapture && !state.trial.phone) return;
+    setState((prev) => ({
+      ...prev,
+      trial: { ...prev.trial, startedAt: Date.now() },
+    }));
+    setToast("Trial started");
+    setTimeout(() => setToast(""), 1600);
   };
 
-  const shareDemo = () => {
-    setMode("demo");
-    setTab("demo");
-    notify("Demo mode opened");
+  const currentTheme = {
+    navy: "#1f3153",
+    green: "#48ff3d",
+    white: "#ffffff",
+    bg: "#f4f7fb",
+    text: "#111827",
   };
 
-  const updateBrand = (field: keyof AppState, value: string | boolean) => {
-    setState((p) => ({ ...p, [field]: value } as AppState));
-  };
+  const cardStyle = {
+    background: currentTheme.navy,
+    color: currentTheme.white,
+    borderRadius: 18,
+    padding: 18,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+    border: `1px solid rgba(255,255,255,0.08)`,
+  } as React.CSSProperties;
 
-  const startOrExpired = state.trial.startAt ? activeTrialDaysLeft <= 0 : false;
+  const boxStyle = {
+    background: "#fff",
+    borderRadius: 18,
+    padding: 18,
+    border: "1px solid #dbe2ea",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+  } as React.CSSProperties;
+
+  const inputStyle = {
+    width: "100%",
+    border: "1px solid #cfd8e3",
+    borderRadius: 10,
+    padding: "10px 12px",
+    background: "#fff",
+    color: currentTheme.text,
+    outline: "none",
+  } as React.CSSProperties;
+
+  const buttonStyle = (active = false): React.CSSProperties => ({
+    background: active ? currentTheme.green : currentTheme.navy,
+    color: active ? currentTheme.navy : "#fff",
+    border: `1px solid ${active ? currentTheme.green : currentTheme.navy}`,
+    borderRadius: 999,
+    padding: "10px 14px",
+    fontWeight: 700,
+    cursor: "pointer",
+  });
+
+  const bottomButtonStyle = (active = false): React.CSSProperties => ({
+    flex: 1,
+    background: active ? currentTheme.green : currentTheme.navy,
+    color: active ? currentTheme.navy : "#fff",
+    border: "none",
+    padding: "10px 6px",
+    borderRadius: 12,
+    fontSize: 11,
+    fontWeight: 700,
+  });
+
+  if (!mounted) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: currentTheme.bg }}>
+        Loading...
+      </div>
+    );
+  }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f5f2ec", color: "#0f1629", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif", paddingBottom: 84 }}>
-      <style>{`
-        *{box-sizing:border-box}
-        input,select,textarea,button{font:inherit}
-        .app-shell{max-width:1200px;margin:0 auto;padding:0 16px 24px}
-        .topbar{position:sticky;top:0;z-index:1000;background:${darkNavy};color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 2px 18px rgba(0,0,0,.18)}
-        .brand{display:flex;align-items:center;gap:10px;min-width:0}
-        .brand h1{margin:0;font-size:20px;font-weight:800}
-        .brand span{color:#8aa0b8}
-        .menu{position:sticky;top:64px;z-index:999;background:#f5f2ec;border-bottom:1px solid #dde3ea;padding:10px 16px;overflow-x:auto;white-space:nowrap}
-        .navbtn{border:1px solid #cbd5e1;background:${blue};color:#fff;border-radius:999px;padding:10px 16px;margin-right:8px;font-weight:700;cursor:pointer}
-        .navbtn.active{background:${green};color:${darkNavy};border-color:${green}}
-        .navbtn:hover{filter:brightness(1.04)}
-        .card{background:#fff;border:1px solid #dde3ea;border-radius:18px;padding:18px;box-shadow:0 8px 30px rgba(15,22,41,.08)}
-        .grid{display:grid;gap:16px}
-        .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-        .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-        .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
-        .kpi{background:${darkNavy};color:#fff;border-radius:20px;padding:22px 20px;min-height:118px}
-        .kpi .k{color:${green};font-size:12.5px;font-weight:800;letter-spacing:.04em}
-        .kpi .v{font-size:30px;font-weight:800;margin-top:10px}
-        .kpi .sub{color:#8aa0b8;font-size:12.5px;margin-top:4px}
-        .title{font-size:28px;font-weight:800;margin:4px 0 16px;letter-spacing:-.015em}
-        .muted{color:#64748b}
-        .btn{border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
-        .btn-green{background:${green};color:${darkNavy}}
-        .btn-white{background:#fff;color:${darkNavy};border:1px solid #cbd5e1}
-        .btn-navy{background:${darkNavy};color:#fff}
-        .chip{display:inline-block;background:#eef2f6;border-radius:999px;padding:4px 10px;font-size:12px}
-        .field{width:100%;background:#fff;border:1.5px solid #cbd5e1;border-radius:12px;padding:12px 13px;color:${darkNavy};outline:none}
-        .small{font-size:13px}
-        .bottomnav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #dde3ea;z-index:1000;display:flex;justify-content:space-around;padding:7px 4px 9px}
-        .bottomnav button{color:${darkNavy};background:transparent;border:none;padding:8px 10px;font-size:11.5px;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:64px;border-radius:10px;cursor:pointer}
-        .bottomnav button.active{background:${green};font-weight:700}
-        .toast{position:fixed;right:16px;bottom:84px;background:${darkNavy};color:#fff;padding:11px 14px;border-radius:12px;font-weight:700;box-shadow:0 12px 30px rgba(0,0,0,.22);z-index:2000}
-        .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-        .split{display:grid;gap:10px;grid-template-columns:repeat(2,minmax(0,1fr))}
-        .hidden{display:none}
-        .sidewrap{display:grid;grid-template-columns:1fr;gap:16px}
-        @media(min-width:900px){
-          .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-          .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
-          .sidewrap{grid-template-columns:320px 1fr}
-          .bottomnav{display:none}
-          .app-shell{padding-bottom:24px}
-        }
-        @media(max-width:768px){
-          .grid-2,.grid-3,.grid-4,.split{grid-template-columns:1fr}
-          .title{font-size:24px}
-          .topbar{align-items:flex-start}
-        }
-        @media(min-width:769px){
-          .bottomnav{display:none}
-          .menu{top:64px}
-        }
-      `}</style>
-
-      {mode === "demo" && <div style={{ position: "sticky", top: 0, zIndex: 1101, background: green, color: darkNavy, textAlign: "center", padding: "9px 14px", fontWeight: 800 }}>Demo Mode – 14-day free trial – No credit card required</div>}
-
-      <header className="topbar" style={{ top: mode === "demo" ? 42 : 0 }}>
-        <div className="brand">
-          <div style={{ width: 42, height: 42, borderRadius: 999, background: darkNavy, display: "grid", placeItems: "center", overflow: "hidden", border: `2px solid ${green}` }}>
-            <div style={{ width: 28, height: 28, borderRadius: 14, background: "linear-gradient(135deg, #4cff34 0%, #4cff34 50%, #e53935 50%, #e53935 100%)" }} />
+    <div style={{ minHeight: "100vh", background: currentTheme.bg, color: currentTheme.text, paddingBottom: 90 }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 50, background: currentTheme.navy, color: "#fff", padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 999, background: currentTheme.green, color: currentTheme.navy, display: "grid", placeItems: "center", fontWeight: 900, fontSize: 24 }}>
+            $
           </div>
-          <div style={{ minWidth: 0 }}>
-            <h1>{state.appName}</h1>
-            <div style={{ color: "#8aa0b8", fontSize: 13 }}>{state.tagline}</div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900 }}>{state.profile.displayName}</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{state.profile.legalName}</div>
           </div>
         </div>
-
-        <div className="row">
-          <span className="chip">{mode === "demo" ? "DEMO" : "LIVE – Private"}</span>
-          <button className="btn btn-white" onClick={toggleMode}>{mode === "live" ? "Demo Mode" : "Live Mode"}</button>
-          <button className="btn btn-green" onClick={saveNow}>Save</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <button style={buttonStyle(demoMode)} onClick={() => { setDemoMode(true); setLiveMode(false); setState((p) => ({ ...p, activeEntity: "all" })); }}>Demo</button>
+          <button style={buttonStyle(liveMode)} onClick={() => { setLiveMode(true); setDemoMode(false); setState((p) => ({ ...p, activeEntity: "all" })); }}>Live</button>
+          <button style={buttonStyle(false)} onClick={save}>Save</button>
         </div>
-      </header>
+      </div>
 
-      <nav className="menu">
-        {(["dashboard", "properties", "expenses", "reports", "homeoffice", "settings", "upgrade", "demo"] as Tab[]).map((t) => (
-          <button key={t} className={`navbtn ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "homeoffice" ? "Home Office" : t === "demo" ? "Refer / Demo" : t[0].toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </nav>
-
-      <main className="app-shell">
-        {showTrialPopup && (
-          <div className="card" style={{ marginTop: 16, border: `2px solid ${green}` }}>
-            <div style={{ fontWeight: 800 }}>Trial reminder</div>
-            <div className="small muted">
-              {startOrExpired ? "Your trial has ended." : `Your trial has ${activeTrialDaysLeft} day(s) left. Time remaining: ${activeTrialTimeLeft}.`}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: 16 }}>
+        {showTrialBanner && (
+          <div style={{ ...boxStyle, marginBottom: 16, borderLeft: `6px solid ${currentTheme.green}` }}>
+            <div style={{ fontWeight: 800 }}>14-Day Trial</div>
+            <div style={{ marginTop: 6 }}>
+              Any information entered during trial mode is stored for a short recovery period if you return within 7 days.
             </div>
-            <div className="row" style={{ marginTop: 10 }}>
-              <button className="btn btn-green" onClick={() => setShowTrialPopup(false)}>Got it</button>
+            <div style={{ marginTop: 6, fontSize: 13, opacity: 0.75 }}>Time left: {trialCountdown}</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <button style={buttonStyle(false)} onClick={startTrial}>Start Trial</button>
+              <button style={buttonStyle(false)} onClick={() => setShowTrialBanner(false)}>Hide</button>
             </div>
           </div>
         )}
 
-        <section id="tab-dashboard" hidden={tab !== "dashboard"}>
-          <h2 className="title">Dashboard</h2>
-          <div className="grid grid-4">
-            <div className="kpi"><div className="k">TOTAL MONTHLY RENT</div><div className="v">{fmt(properties.filter((p) => !p.isPersonal).reduce((s, p) => s + Number(p.rent || 0), 0))}</div><div className="sub">{properties.filter((p) => !p.isPersonal).length} rental units</div></div>
-            <div className="kpi"><div className="k">YTD COLLECTED</div><div className="v">{fmt(state.expenses.reduce((s, e) => s + Number(e.amount || 0), 0))}</div><div className="sub">Expenses saved</div></div>
-            <div className="kpi"><div className="k">TRIAL</div><div className="v">{state.trial.startAt ? `${activeTrialDaysLeft}` : "14"}</div><div className="sub">{state.trial.startAt ? `${activeTrialTimeLeft}` : "Days available"}</div></div>
-            <div className="kpi"><div className="k">EXPENSES</div><div className="v">{state.expenses.length}</div><div className="sub">Saved items</div></div>
-          </div>
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", marginBottom: 16 }}>
+          <div style={cardStyle}><div style={{ opacity: 0.8 }}>YTD Rent</div><div style={{ fontSize: 28, fontWeight: 900 }}>{money(ytdTotalRent)}</div></div>
+          <div style={cardStyle}><div style={{ opacity: 0.8 }}>Outstanding</div><div style={{ fontSize: 28, fontWeight: 900 }}>{money(totalBalance)}</div></div>
+          <div style={cardStyle}><div style={{ opacity: 0.8 }}>Property Taxes</div><div style={{ fontSize: 28, fontWeight: 900 }}>{money(totalTaxes)}</div></div>
+          <div style={cardStyle}><div style={{ opacity: 0.8 }}>Insurance</div><div style={{ fontSize: 28, fontWeight: 900 }}>{money(totalInsurance)}</div></div>
+        </div>
 
-          <div className="grid grid-2" style={{ marginTop: 24 }}>
-            <div className="card">
-              <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8 }}>Recent Properties</div>
-              <div className="small muted">{properties.map((p) => <div key={p.id}>{p.name} – {p.address}</div>)}</div>
-            </div>
-            <div className="card">
-              <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8 }}>Recent Expenses</div>
-              <div className="small muted">{state.expenses.length ? state.expenses.slice(0, 4).map((e) => <div key={e.id}>{e.date} – {e.vendor} – <b>{fmt(e.amount)}</b></div>) : "No expenses yet."}</div>
-            </div>
-          </div>
-        </section>
-
-        <section id="tab-properties" hidden={tab !== "properties"}>
-          <div className="row" style={{ alignItems: "flex-end", marginBottom: 12, gap: 14 }}>
-            <h2 className="title" style={{ margin: 0 }}>Properties</h2>
-            <button className="btn btn-green" onClick={addProperty}>+ Add Property</button>
-          </div>
-
-          <div className="sidewrap">
-            <div className="card">
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Property Setup</div>
-              <div className="small muted">You can edit every property, owner, rent amount, and lease link here.</div>
-              <div style={{ marginTop: 12 }} className="small">
-                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="checkbox" checked={state.showTerms} onChange={(e) => updateBrand("showTerms", e.target.checked)} />
-                  Show Terms in menu
-                </label>
-                <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-                  <input type="checkbox" checked={state.showCancelPolicy} onChange={(e) => updateBrand("showCancelPolicy", e.target.checked)} />
-                  Show cancellation policy
-                </label>
-                <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
-                  <input type="checkbox" checked={state.showPayments} onChange={(e) => updateBrand("showPayments", e.target.checked)} />
-                  Show payments section
-                </label>
-              </div>
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "280px 1fr" }}>
+          <div style={{ ...boxStyle, position: "sticky", top: 82, alignSelf: "start" }}>
+            <div style={{ fontWeight: 900, marginBottom: 10 }}>Menu</div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {navItems.map((n) => (
+                <button
+                  key={n.key}
+                  style={buttonStyle(state.activeTab === n.key)}
+                  onClick={() => setState((p) => ({ ...p, activeTab: n.key }))}
+                >
+                  {n.label}
+                </button>
+              ))}
             </div>
 
-            <div className="card">
-              <div className="grid grid-2">
-                {properties.map((p) => (
-                  <div key={p.id} className="card" style={{ boxShadow: "none", borderRadius: 16, borderColor: "#e5e7eb" }}>
-                    <input className="field" value={p.name} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, name: e.target.value } : x)) }))} />
-                    <input className="field" style={{ marginTop: 8 }} value={p.address} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, address: e.target.value } : x)) }))} />
-                    <input className="field" style={{ marginTop: 8 }} value={p.owner} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, owner: e.target.value } : x)) }))} placeholder="Owner" />
-                    <input className="field" style={{ marginTop: 8 }} value={String(p.rent)} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, rent: Number(e.target.value) || 0 } : x)) }))} placeholder="Rent" />
-                    <input className="field" style={{ marginTop: 8 }} value={p.tenant} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, tenant: e.target.value } : x)) }))} placeholder="Tenant" />
-                    <input className="field" style={{ marginTop: 8 }} value={p.leaseName || ""} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, leaseName: e.target.value } : x)) }))} placeholder="Lease name" />
-                    <input className="field" style={{ marginTop: 8 }} value={p.leaseUrl || ""} onChange={(e) => setState((prev) => ({ ...prev, properties: prev.properties.map((x) => (x.id === p.id ? { ...x, leaseUrl: e.target.value } : x)) }))} placeholder="Lease URL or file link" />
-                    <div className="row" style={{ marginTop: 10 }}>
-                      <button className="btn btn-white" onClick={() => setState((prev) => ({ ...prev, properties: prev.properties.filter((x) => x.id !== p.id) }))}>Delete</button>
+            <div style={{ marginTop: 16, fontWeight: 900 }}>Entity</div>
+            <select
+              style={{ ...inputStyle, marginTop: 8 }}
+              value={state.activeEntity}
+              onChange={(e) => setState((p) => ({ ...p, activeEntity: e.target.value as any }))}
+            >
+              <option value="all">All</option>
+              <option value="personal">Personal</option>
+              <option value="llc">LLC</option>
+              <option value="corporation">Corporation</option>
+              <option value="trial">Trial</option>
+              <option value="demo">Demo</option>
+            </select>
+
+            <div style={{ marginTop: 16, fontWeight: 900 }}>Quick Toggles</div>
+            <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={state.toggles.emailCapture} onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, emailCapture: e.target.checked } }))} />
+              Email capture
+            </label>
+            <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={state.toggles.phoneCapture} onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, phoneCapture: e.target.checked } }))} />
+              Phone capture
+            </label>
+            <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={state.toggles.creditCardCapture} onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, creditCardCapture: e.target.checked } }))} />
+              Credit card capture
+            </label>
+            <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={state.toggles.stripeEnabled} onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, stripeEnabled: e.target.checked } }))} />
+              Stripe enabled
+            </label>
+            <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={state.toggles.termsEnabled} onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, termsEnabled: e.target.checked } }))} />
+              Terms enabled
+            </label>
+            <label style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+              <input type="checkbox" checked={state.toggles.cancellationEnabled} onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, cancellationEnabled: e.target.checked } }))} />
+              Cancellation enabled
+            </label>
+
+            <div style={{ marginTop: 16, fontWeight: 900 }}>Invite / Demo</div>
+            <div style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>
+              <Link href="/demo">Click here to see how it works</Link>
+            </div>
+
+            <div style={{ marginTop: 16, fontSize: 12, opacity: 0.8 }}>
+              Not legal advice. Not accounting advice. Users are responsible for the data they enter.
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 16 }}>
+            {state.activeTab === "dashboard" && (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={boxStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900 }}>Dashboard</div>
+                      <div style={{ opacity: 0.7 }}>YTD totals, balances, and quick property status.</div>
                     </div>
+                    <button style={buttonStyle(false)} onClick={() => addProperty(state.activeEntity === "all" ? "llc" : state.activeEntity as EntityType)}>
+                      Add Property
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="tab-expenses" hidden={tab !== "expenses"}>
-          <h2 className="title">Expenses</h2>
-          <div className="card">
-            <div className="grid grid-2">
-              <div>
-                <div className="small muted">Vendor</div>
-                <input className="field" value={expenseVendor} onChange={(e) => setExpenseVendor(e.target.value)} />
-              </div>
-              <div>
-                <div className="small muted">Amount</div>
-                <input className="field" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value)} />
-              </div>
-              <div>
-                <div className="small muted">Category</div>
-                <select className="field" value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
-                  <option>Repairs</option>
-                  <option>Maintenance</option>
-                  <option>Utilities</option>
-                  <option>Insurance</option>
-                  <option>Supplies</option>
-                  <option>Landscaping</option>
-                  <option>Management</option>
-                  <option>Other</option>
-                </select>
-              </div>
-              <div>
-                <div className="small muted">Notes</div>
-                <input className="field" value={expenseNotes} onChange={(e) => setExpenseNotes(e.target.value)} />
-              </div>
-            </div>
-
-            <div style={{ marginTop: 14 }}>
-              <div className="small muted">Select property or properties</div>
-              <div className="row" style={{ marginTop: 8 }}>
-                {properties.map((p) => (
-                  <label key={p.id} className="chip" style={{ cursor: "pointer", display: "inline-flex", gap: 6, alignItems: "center" }}>
-                    <input
-                      type="checkbox"
-                      checked={expensePropertyIds.includes(p.id)}
-                      onChange={(e) =>
-                        setExpensePropertyIds((prev) =>
-                          e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
-                        )
-                      }
-                    />
-                    {p.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="row" style={{ marginTop: 14 }}>
-              <button className="btn btn-green" onClick={addExpense}>Save Expense</button>
-              <button className="btn btn-white" onClick={() => setTab("reports")}>Go to Reports</button>
-            </div>
-          </div>
-
-          <div className="card" style={{ marginTop: 16 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Saved Expenses</div>
-            <div className="small muted">
-              {state.expenses.length ? state.expenses.map((e) => (
-                <div key={e.id}>{e.date} – {e.vendor} – {fmt(e.amount)} – {e.category}</div>
-              )) : "No expenses saved."}
-            </div>
-          </div>
-        </section>
-
-        <section id="tab-homeoffice" hidden={tab !== "homeoffice"}>
-          <h2 className="title">Home Office</h2>
-          <div className="card">
-            <div className="grid grid-2">
-              {state.homeOffices.map((o) => (
-                <div key={o.id} className="card" style={{ boxShadow: "none", borderColor: "#e5e7eb" }}>
-                  <input className="field" value={o.label} onChange={(e) => setState((prev) => ({ ...prev, homeOffices: prev.homeOffices.map((x) => (x.id === o.id ? { ...x, label: e.target.value } : x)) }))} />
-                  <input className="field" style={{ marginTop: 8 }} value={o.sqft} onChange={(e) => setState((prev) => ({ ...prev, homeOffices: prev.homeOffices.map((x) => (x.id === o.id ? { ...x, sqft: e.target.value } : x)) }))} placeholder="Sq ft" />
-                  <input className="field" style={{ marginTop: 8 }} value={o.notes} onChange={(e) => setState((prev) => ({ ...prev, homeOffices: prev.homeOffices.map((x) => (x.id === o.id ? { ...x, notes: e.target.value } : x)) }))} placeholder="Notes" />
                 </div>
-              ))}
-            </div>
-            <div className="row" style={{ marginTop: 14 }}>
-              <button
-                className="btn btn-green"
-                onClick={() => setState((p) => ({ ...p, homeOffices: [...p.homeOffices, { id: Date.now(), label: "New Area", sqft: "", notes: "" }] }))}
-              >
-                Add Home Office Area
-              </button>
-            </div>
-          </div>
-        </section>
 
-        <section id="tab-reports" hidden={tab !== "reports"}>
-          <h2 className="title">Reports</h2>
-          <div className="card">
-            <div className="row">
-              <button className="btn btn-white" onClick={() => runReport("pl")}>P&amp;L</button>
-              <button className="btn btn-white" onClick={() => runReport("schedulee")}>Schedule E</button>
-              <button className="btn btn-white" onClick={() => runReport("schedulea")}>Schedule A</button>
-              <button className="btn btn-white" onClick={() => runReport("homeoffice")}>Home Office</button>
-              <button className="btn btn-white" onClick={() => runReport("mileage")}>Mileage</button>
-            </div>
+                {activeProperties.map((p) => (
+                  <div key={p.id} style={cardStyle}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <div style={{ fontSize: 22, fontWeight: 900 }}>{p.name}</div>
+                        <div style={{ opacity: 0.9 }}>{p.address1}, {p.city}, {p.state} {p.zip}</div>
+                        <div style={{ marginTop: 6, opacity: 0.8 }}>
+                          {p.tenantName || "No tenant"} · {p.ownershipGroup} · {p.leaseType} · Notice {p.leaseNoticeDays} days
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 14, opacity: 0.8 }}>Monthly Rent</div>
+                        <div style={{ fontSize: 28, fontWeight: 900 }}>{money(p.rentDue)}</div>
+                        <div style={{ marginTop: 6, fontWeight: 800 }}>
+                          Balance: {money(p.currentBalance)}
+                        </div>
+                      </div>
+                    </div>
 
-            <div style={{ marginTop: 16, background: "#f6f4ef", borderRadius: 12, padding: 14, minHeight: 120, whiteSpace: "pre-wrap" }}>
-              {reportText}
-            </div>
-
-            <div style={{ marginTop: 16 }} className="grid grid-2">
-              <div>
-                <div className="small muted">Send to accountant</div>
-                <select className="field" value={emailTarget} onChange={(e) => setEmailTarget(e.target.value)}>
-                  <option value="">Choose saved contact</option>
-                  {state.accountants.map((a) => (
-                    <option key={a.id} value={a.email}>{a.name} — {a.title} — {a.email}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="row" style={{ alignItems: "end" }}>
-                <button className="btn btn-green" onClick={sendReportToAccountant}>One-Touch Send</button>
-                <button className="btn btn-white" onClick={() => setTab("settings")}>Edit Contacts</button>
-              </div>
-            </div>
-          </div>
-
-          <div className="card" style={{ marginTop: 16 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Report Footer</div>
-            <div className="small muted">Every report can show the smaller TaxSavvy mark and “Report generated by TaxSavvy.”</div>
-          </div>
-        </section>
-
-        <section id="tab-settings" hidden={tab !== "settings"}>
-          <h2 className="title">Settings</h2>
-          <div className="sidewrap">
-            <div className="card">
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Branding</div>
-              <div className="small muted">You can change these anytime.</div>
-              <div style={{ marginTop: 12 }}>
-                <div className="small muted">App name</div>
-                <input className="field" value={state.appName} onChange={(e) => updateBrand("appName", e.target.value)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="small muted">Tagline</div>
-                <input className="field" value={state.tagline} onChange={(e) => updateBrand("tagline", e.target.value)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="small muted">Support email</div>
-                <input className="field" value={state.supportEmail} onChange={(e) => updateBrand("supportEmail", e.target.value)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="small muted">Navy</div>
-                <input className="field" value={state.brandNavy} onChange={(e) => updateBrand("brandNavy", e.target.value)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="small muted">Blue</div>
-                <input className="field" value={state.brandBlue} onChange={(e) => updateBrand("brandBlue", e.target.value)} />
-              </div>
-              <div style={{ marginTop: 12 }}>
-                <div className="small muted">Green</div>
-                <input className="field" value={state.brandGreen} onChange={(e) => updateBrand("brandGreen", e.target.value)} />
-              </div>
-              <div className="row" style={{ marginTop: 14 }}>
-                <button className="btn btn-green" onClick={saveNow}>Save Branding</button>
-              </div>
-
-              <hr style={{ border: "none", borderTop: "1px solid #dde3ea", margin: "14px 0" }} />
-
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Trial Signup</div>
-              <div className="small muted">Email required. Name and company optional.</div>
-              <div style={{ marginTop: 12 }}>
-                <input className="field" placeholder="Email *" value={trialEmail} onChange={(e) => setTrialEmail(e.target.value)} />
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <input className="field" placeholder="Name" value={trialName} onChange={(e) => setTrialName(e.target.value)} />
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <input className="field" placeholder="Company" value={trialCompany} onChange={(e) => setTrialCompany(e.target.value)} />
-              </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <button className="btn btn-green" onClick={setTrialStartNow}>Start 14-Day Trial</button>
-                <button className="btn btn-white" onClick={updateTrial}>Save Trial Info</button>
-              </div>
-              <div className="small muted" style={{ marginTop: 8 }}>
-                Trial status: {state.trial.startAt ? `${activeTrialDaysLeft} day(s) left` : "Not started"}
-              </div>
-            </div>
-
-            <div className="card">
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Accountant Contacts</div>
-              <div className="small muted">Store CPA, assistant, or helper emails so you do not have to type them every time.</div>
-              <div style={{ marginTop: 12 }} className="grid">
-                {state.accountants.length ? state.accountants.map((a) => (
-                  <div key={a.id} className="card" style={{ boxShadow: "none", borderColor: "#e5e7eb" }}>
-                    <input className="field" value={a.name} onChange={(e) => setState((p) => ({ ...p, accountants: p.accountants.map((x) => (x.id === a.id ? { ...x, name: e.target.value } : x)) }))} />
-                    <input className="field" style={{ marginTop: 8 }} value={a.title} onChange={(e) => setState((p) => ({ ...p, accountants: p.accountants.map((x) => (x.id === a.id ? { ...x, title: e.target.value } : x)) }))} />
-                    <input className="field" style={{ marginTop: 8 }} value={a.email} onChange={(e) => setState((p) => ({ ...p, accountants: p.accountants.map((x) => (x.id === a.id ? { ...x, email: e.target.value } : x)) }))} />
-                    <div className="row" style={{ marginTop: 8 }}>
-                      <label className="small"><input type="checkbox" checked={!!a.primary} onChange={(e) => setState((p) => ({ ...p, accountants: p.accountants.map((x) => ({ ...x, primary: x.id === a.id ? e.target.checked : false })) }))} /> Primary</label>
-                      <button className="btn btn-white" onClick={() => setState((p) => ({ ...p, accountants: p.accountants.filter((x) => x.id !== a.id) }))}>Delete</button>
+                    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", marginTop: 16 }}>
+                      <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>
+                        <div style={{ fontSize: 12, opacity: 0.8 }}>YTD Collected</div>
+                        <div style={{ fontSize: 22, fontWeight: 900 }}>{money(p.ytdCollected)}</div>
+                      </div>
+                      <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>
+                        <div style={{ fontSize: 12, opacity: 0.8 }}>Payment Method</div>
+                        <div style={{ fontSize: 18, fontWeight: 800 }}>{p.paymentMethod}</div>
+                      </div>
+                      <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>
+                        <div style={{ fontSize: 12, opacity: 0.8 }}>Last Payment</div>
+                        <div style={{ fontSize: 18, fontWeight: 800 }}>{p.lastPaymentDate || "—"}</div>
+                      </div>
+                      <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>
+                        <div style={{ fontSize: 12, opacity: 0.8 }}>Status</div>
+                        <div style={{ fontSize: 18, fontWeight: 800 }}>{p.monthStatus}</div>
+                      </div>
                     </div>
                   </div>
-                )) : null}
+                ))}
               </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <button className="btn btn-green" onClick={addAccountant}>Add Accountant</button>
+            )}
+
+            {state.activeTab === "properties" && (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={boxStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 22, fontWeight: 900 }}>Properties</div>
+                      <div style={{ opacity: 0.7 }}>All fields are editable. Add, change, or remove anything.</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button style={buttonStyle(false)} onClick={() => addProperty("personal")}>Add Personal</button>
+                      <button style={buttonStyle(false)} onClick={() => addProperty("llc")}>Add LLC</button>
+                      <button style={buttonStyle(false)} onClick={() => addProperty("corporation")}>Add Corporation</button>
+                    </div>
+                  </div>
+                </div>
+
+                {activeProperties.map((p) => (
+                  <div key={p.id} style={boxStyle}>
+                    <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(210px,1fr))" }}>
+                      <input style={inputStyle} value={p.name} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, name: e.target.value }))} placeholder="Property name" />
+                      <input style={inputStyle} value={p.address1} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, address1: e.target.value }))} placeholder="Address 1" />
+                      <input style={inputStyle} value={p.city} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, city: e.target.value }))} placeholder="City" />
+                      <input style={inputStyle} value={p.state} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, state: e.target.value }))} placeholder="State" />
+                      <input style={inputStyle} value={p.zip} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, zip: e.target.value }))} placeholder="ZIP" />
+                      <input style={inputStyle} value={p.ownerName} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, ownerName: e.target.value }))} placeholder="Owner name" />
+                      <input style={inputStyle} value={p.ownershipGroup} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, ownershipGroup: e.target.value }))} placeholder="Ownership group" />
+                      <select style={inputStyle} value={p.entity} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, entity: e.target.value as EntityType }))}>
+                        <option value="personal">Personal</option>
+                        <option value="llc">LLC</option>
+                        <option value="corporation">Corporation</option>
+                        <option value="trial">Trial</option>
+                        <option value="demo">Demo</option>
+                      </select>
+                      <input style={inputStyle} value={String(p.rentDue)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, rentDue: Number(e.target.value || 0) }))} placeholder="Rent due" />
+                      <input style={inputStyle} value={String(p.currentBalance)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, currentBalance: Number(e.target.value || 0) }))} placeholder="Outstanding balance" />
+                      <input style={inputStyle} value={String(p.ytdCollected)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, ytdCollected: Number(e.target.value || 0) }))} placeholder="YTD collected" />
+                      <select style={inputStyle} value={p.paymentMethod} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, paymentMethod: e.target.value }))}>
+                        <option>ACH</option>
+                        <option>Cash App</option>
+                        <option>Zelle</option>
+                        <option>Venmo</option>
+                        <option>PayPal</option>
+                        <option>Cash</option>
+                        <option>Arbor Housing</option>
+                        <option>Catholic Charities</option>
+                        <option>County DSS</option>
+                        <option>Other</option>
+                      </select>
+                      <select style={inputStyle} value={p.leaseType} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, leaseType: e.target.value as any }))}>
+                        <option value="month-to-month">Month-to-month</option>
+                        <option value="fixed">Fixed lease</option>
+                      </select>
+                      <input style={inputStyle} value={p.leaseStart} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, leaseStart: e.target.value }))} placeholder="Lease start" />
+                      <input style={inputStyle} value={p.leaseEnd} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, leaseEnd: e.target.value }))} placeholder="Lease end" />
+                      <input style={inputStyle} value={String(p.leaseNoticeDays)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, leaseNoticeDays: Number(e.target.value || 0) }))} placeholder="Notice days" />
+                      <input style={inputStyle} value={p.tenantName} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, tenantName: e.target.value }))} placeholder="Tenant name" />
+                      <input style={inputStyle} value={p.tenantPhone} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, tenantPhone: e.target.value }))} placeholder="Tenant phone" />
+                      <input style={inputStyle} value={p.tenantEmployer} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, tenantEmployer: e.target.value }))} placeholder="Tenant employer" />
+                      <input style={inputStyle} value={p.additionalFamilyMembers} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, additionalFamilyMembers: e.target.value }))} placeholder="Additional family members" />
+                      <input style={inputStyle} value={p.yearPurchased} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, yearPurchased: e.target.value }))} placeholder="Year purchased" />
+                      <input style={inputStyle} value={p.monthPurchased} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, monthPurchased: e.target.value }))} placeholder="Month purchased" />
+                      <input style={inputStyle} value={p.notes} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, notes: e.target.value }))} placeholder="Notes" />
+                    </div>
+
+                    <div style={{ marginTop: 16, display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+                      <input style={inputStyle} value={String(p.taxData.homeownersInsurance)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, homeownersInsurance: Number(e.target.value || 0) } }))} placeholder="Homeowners insurance" />
+                      <input style={inputStyle} value={String(p.taxData.villageTax)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, villageTax: Number(e.target.value || 0) } }))} placeholder="Village tax" />
+                      <input style={inputStyle} value={String(p.taxData.townCountyTax)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, townCountyTax: Number(e.target.value || 0) } }))} placeholder="Town/County tax" />
+                      <input style={inputStyle} value={String(p.taxData.schoolTax)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, schoolTax: Number(e.target.value || 0) } }))} placeholder="School tax" />
+                      <input style={inputStyle} value={String(p.taxData.totalPropertyTax)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, totalPropertyTax: Number(e.target.value || 0) } }))} placeholder="Total property tax" />
+                      <input style={inputStyle} value={String(p.taxData.utilitiesGas)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, utilitiesGas: Number(e.target.value || 0) } }))} placeholder="Gas" />
+                      <input style={inputStyle} value={String(p.taxData.utilitiesElectric)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, utilitiesElectric: Number(e.target.value || 0) } }))} placeholder="Electric" />
+                      <input style={inputStyle} value={String(p.taxData.utilitiesWaterSewer)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, utilitiesWaterSewer: Number(e.target.value || 0) } }))} placeholder="Water / sewer" />
+                      <input style={inputStyle} value={String(p.taxData.utilitiesTrash)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, taxData: { ...x.taxData, utilitiesTrash: Number(e.target.value || 0) } }))} placeholder="Trash / disposal" />
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+                      <button style={buttonStyle(false)} onClick={() => updateProperty(p.id, (x) => ({ ...x, currentBalance: 0, monthStatus: "Paid" }))}>Paid in Full</button>
+                      <button style={buttonStyle(false)} onClick={() => updateProperty(p.id, (x) => ({ ...x, monthStatus: "Partial" }))}>Partial Payment</button>
+                      <button style={buttonStyle(false)} onClick={() => deleteProperty(p.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
               </div>
+            )}
 
-              <hr style={{ border: "none", borderTop: "1px solid #dde3ea", margin: "14px 0" }} />
+            {state.activeTab === "expenses" && (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 22, fontWeight: 900 }}>Expenses</div>
+                  <div style={{ opacity: 0.7 }}>Add one expense and split it across one or two properties.</div>
 
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Legal & Menu</div>
-              <div className="small muted">You can keep Terms hidden until launch.</div>
-              <label className="small" style={{ display: "block", marginTop: 10 }}>
-                <input type="checkbox" checked={state.showTerms} onChange={(e) => updateBrand("showTerms", e.target.checked)} /> Show Terms in menu
-              </label>
-              <label className="small" style={{ display: "block", marginTop: 8 }}>
-                <input type="checkbox" checked={state.showCancelPolicy} onChange={(e) => updateBrand("showCancelPolicy", e.target.checked)} /> Show cancellation policy
-              </label>
-              <label className="small" style={{ display: "block", marginTop: 8 }}>
-                <input type="checkbox" checked={state.showPayments} onChange={(e) => updateBrand("showPayments", e.target.checked)} /> Show payments section
-              </label>
-              <div className="small muted" style={{ marginTop: 10 }}>Not legal advice. Not accounting advice.</div>
-            </div>
-          </div>
-        </section>
+                  <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", marginTop: 12 }}>
+                    <input style={inputStyle} value={newExpense.vendor} onChange={(e) => updateExpenseField("vendor", e.target.value)} placeholder="Vendor" />
+                    <select style={inputStyle} value={newExpense.category} onChange={(e) => updateExpenseField("category", e.target.value)}>
+                      <option>Repairs</option>
+                      <option>Maintenance</option>
+                      <option>Capital Improvements</option>
+                      <option>Energy Star</option>
+                      <option>Mortgage Interest</option>
+                      <option>HELOC Interest</option>
+                      <option>Home Equity Interest</option>
+                      <option>Home Office</option>
+                      <option>Mileage</option>
+                      <option>Utilities</option>
+                      <option>Insurance</option>
+                      <option>Professional Fees</option>
+                      <option>Legal Fees</option>
+                      <option>Cell Phone</option>
+                      <option>Other</option>
+                    </select>
+                    <input style={inputStyle} value={newExpense.amount} onChange={(e) => updateExpenseField("amount", e.target.value)} placeholder="Amount" />
+                    <select style={inputStyle} value={newExpense.method} onChange={(e) => updateExpenseField("method", e.target.value)}>
+                      <option>ACH</option>
+                      <option>Cash</option>
+                      <option>Card</option>
+                      <option>Zelle</option>
+                      <option>Venmo</option>
+                      <option>PayPal</option>
+                      <option>Cash App</option>
+                      <option>Other</option>
+                    </select>
+                    <input style={inputStyle} value={newExpense.notes} onChange={(e) => updateExpenseField("notes", e.target.value)} placeholder="Notes" />
+                    <select style={inputStyle} value={newExpense.splitMode} onChange={(e) => updateExpenseField("splitMode", e.target.value)}>
+                      <option value="single">Single property</option>
+                      <option value="double">Split two properties</option>
+                    </select>
+                    <select style={inputStyle} value={newExpense.propertyIdA} onChange={(e) => updateExpenseField("propertyIdA", e.target.value)}>
+                      <option value="">Select property A</option>
+                      {state.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select style={inputStyle} value={newExpense.propertyIdB} onChange={(e) => updateExpenseField("propertyIdB", e.target.value)}>
+                      <option value="">Select property B</option>
+                      {state.properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <input style={inputStyle} value={newExpense.splitA} onChange={(e) => updateExpenseField("splitA", e.target.value)} placeholder="Split A amount" />
+                    <input style={inputStyle} value={newExpense.splitB} onChange={(e) => updateExpenseField("splitB", e.target.value)} placeholder="Split B amount" />
+                  </div>
 
-        <section id="tab-upgrade" hidden={tab !== "upgrade"}>
-          <h2 className="title">Upgrade – TaxSavvy Pro</h2>
-          <div className="card">
-            <p className="muted">Unlock unlimited properties, automated bank import, CPA-ready exports, and priority support.</p>
-            <div className="grid grid-3">
-              {["Stripe", "PayPal", "Venmo", "Cash App", "Zelle", "ACH"].map((p) => (
-                <button key={p} className={`btn ${p === "Stripe" ? "btn-navy" : "btn-white"}`}>{p}</button>
-              ))}
-            </div>
-            <p className="small muted" style={{ marginTop: 14 }}>
-              14-day trial, no credit card required. Users can upgrade later.
-            </p>
-          </div>
-        </section>
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                    <button style={buttonStyle(false)} onClick={addExpense}>Save Expense</button>
+                  </div>
+                </div>
 
-        <section id="tab-demo" hidden={tab !== "demo"}>
-          <h2 className="title">Refer / Demo</h2>
-          <div className="card">
-            <p className="muted">This menu section can open a demo version with sample homes, rentals, buildings, businesses, and personal records so people can see the product without it being clumsy on the top bar.</p>
-            <div className="row">
-              <button className="btn btn-green" onClick={shareDemo}>Open Demo</button>
-              <button className="btn btn-white" onClick={() => setTab("dashboard")}>Back</button>
-            </div>
-            <div className="card" style={{ marginTop: 14, boxShadow: "none", borderColor: "#e5e7eb" }}>
-              <div style={{ fontWeight: 800, marginBottom: 8 }}>Demo sample ideas</div>
-              <div className="small muted">
-                Rental homes, duplexes, apartment units, buildings, businesses, subcontractors, and personal properties.
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 18, fontWeight: 900 }}>Saved Expenses</div>
+                  <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                    {state.expenses.map((e) => (
+                      <div key={e.id} style={{ padding: 14, borderRadius: 14, border: "1px solid #dbe2ea" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                          <div>
+                            <div style={{ fontWeight: 900 }}>{e.vendor}</div>
+                            <div style={{ opacity: 0.7 }}>{e.date} · {e.category} · {e.paymentMethod}</div>
+                          </div>
+                          <div style={{ fontWeight: 900 }}>{money(e.amount)}</div>
+                        </div>
+                        <div style={{ marginTop: 8 }}>{e.notes}</div>
+                        {e.splits.length > 0 && (
+                          <div style={{ marginTop: 8, fontSize: 13, opacity: 0.75 }}>
+                            Split: {e.splits.map((s) => {
+                              const p = state.properties.find((x) => x.id === s.propertyId);
+                              return `${p?.name || "Property"} ${money(s.amount)}`;
+                            }).join(" | ")}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </section>
+            )}
 
-        <section hidden={!state.showTerms || tab !== "settings"}>
-          <div className="card" style={{ marginTop: 16 }}>
-            <div style={{ fontWeight: 800, marginBottom: 8 }}>Terms</div>
-            <div className="small muted">
-              Not legal advice. Not accounting advice. This app is for organizing and preparing records.
-            </div>
-            {state.showCancelPolicy && (
-              <div className="small muted" style={{ marginTop: 8 }}>
-                Cancellation policy can be shown here later when you are ready to sell.
+            {state.activeTab === "reports" && (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 22, fontWeight: 900 }}>Reports</div>
+                  <div style={{ opacity: 0.7 }}>P&L, Schedule E, Schedule A, home office, mileage, and more.</div>
+                  <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", marginTop: 14 }}>
+                    <button style={buttonStyle(false)}>P&L</button>
+                    <button style={buttonStyle(false)}>Schedule E</button>
+                    <button style={buttonStyle(false)}>Schedule A</button>
+                    <button style={buttonStyle(false)}>Home Office</button>
+                    <button style={buttonStyle(false)}>Mileage</button>
+                    <button style={buttonStyle(false)}>Email Accountant</button>
+                  </div>
+
+                  <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+                    <div>Total property taxes: {money(totalTaxes)}</div>
+                    <div>Total homeowners insurance: {money(totalInsurance)}</div>
+                    <div>Total outstanding balance: {money(totalBalance)}</div>
+                    <div>Total YTD rent: {money(ytdTotalRent)}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === "settings" && (
+              <div style={{ display: "grid", gap: 16 }}>
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 22, fontWeight: 900 }}>Settings</div>
+                  <div style={{ opacity: 0.7 }}>Everything is editable.</div>
+                  <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", marginTop: 12 }}>
+                    <input style={inputStyle} value={state.profile.displayName} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, displayName: e.target.value } }))} placeholder="App display name" />
+                    <input style={inputStyle} value={state.profile.legalName} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, legalName: e.target.value } }))} placeholder="Legal name" />
+                    <input style={inputStyle} value={state.profile.address} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, address: e.target.value } }))} placeholder="Address" />
+                    <input style={inputStyle} value={state.profile.supportEmail} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, supportEmail: e.target.value } }))} placeholder="Support email" />
+                    <input style={inputStyle} value={state.profile.reportEmail} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, reportEmail: e.target.value } }))} placeholder="Report email" />
+                    <input style={inputStyle} value={state.profile.phone} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, phone: e.target.value } }))} placeholder="Phone" />
+                  </div>
+                </div>
+
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 18, fontWeight: 900 }}>Toggles</div>
+                  <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                    {[
+                      ["Email capture", "emailCapture"],
+                      ["Phone capture", "phoneCapture"],
+                      ["Credit card capture", "creditCardCapture"],
+                      ["Stripe enabled", "stripeEnabled"],
+                      ["Terms enabled", "termsEnabled"],
+                      ["Cancellation enabled", "cancellationEnabled"],
+                    ].map(([label, key]) => (
+                      <label key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <input
+                          type="checkbox"
+                          checked={(state.toggles as any)[key]}
+                          onChange={(e) => setState((p) => ({ ...p, toggles: { ...p.toggles, [key]: e.target.checked } }))}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 18, fontWeight: 900 }}>Trial / Signup</div>
+                  <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", marginTop: 12 }}>
+                    <input style={inputStyle} value={state.trial.name} onChange={(e) => setState((p) => ({ ...p, trial: { ...p.trial, name: e.target.value } }))} placeholder="Name" />
+                    <input style={inputStyle} value={state.trial.email} onChange={(e) => setState((p) => ({ ...p, trial: { ...p.trial, email: e.target.value } }))} placeholder="Email" />
+                    <input style={inputStyle} value={state.trial.phone} onChange={(e) => setState((p) => ({ ...p, trial: { ...p.trial, phone: e.target.value } }))} placeholder="Phone" />
+                  </div>
+                </div>
+
+                <div style={boxStyle}>
+                  <div style={{ fontSize: 18, fontWeight: 900 }}>Terms & Cancellation</div>
+                  <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+                    Not legal advice. Not accounting advice. Users are responsible for reviewing their own information. To cancel, click here.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === "demo" && (
+              <div style={boxStyle}>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>Demo / Invite</div>
+                <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+                  This is the demo view. It can show sample LLCs, corporations, personal homes, rentals, and tax reports without showing your private information.
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === "trial" && (
+              <div style={boxStyle}>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>Trial</div>
+                <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+                  Trial data is stored for a short recovery period if the user returns within 7 days. Countdown: {trialCountdown}
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === "corporate" && (
+              <div style={boxStyle}>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>Corporate</div>
+                <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+                  MCMC Properties Inc. is a separate entity. Corporate expenses can include cell phone, legal fees, CPA fees, and dividends tracking.
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === "personal" && (
+              <div style={boxStyle}>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>Personal</div>
+                <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+                  Track personal home, qualified dividends, home office, insurance, and personal tax information here.
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === "rentals" && (
+              <div style={boxStyle}>
+                <div style={{ fontSize: 22, fontWeight: 900 }}>Rentals</div>
+                <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+                  Rental properties, partial payments, lease dates, month-to-month labels, and full payment history are all editable here.
+                </div>
               </div>
             )}
           </div>
-        </section>
-      </main>
+        </div>
+      </div>
 
-      <nav className="bottomnav" aria-label="Mobile Navigation">
-        {[
-          ["dashboard", "🏠", "Home"],
-          ["properties", "🏢", "Props"],
-          ["expenses", "🧾", "Exp"],
-          ["reports", "📊", "Reports"],
-          ["settings", "⚙️", "Settings"],
-        ].map(([key, ico, label]) => (
-          <button key={key} className={tab === key ? "active" : ""} onClick={() => setTab(key as Tab)}>
-            <span style={{ fontSize: 18, lineHeight: 1 }}>{ico}</span>
-            {label}
+      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, background: currentTheme.navy, padding: 8, display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
+        {navItems.slice(0, 5).map((n) => (
+          <button
+            key={n.key}
+            style={bottomButtonStyle(state.activeTab === n.key)}
+            onClick={() => setState((p) => ({ ...p, activeTab: n.key }))}
+          >
+            {n.label}
           </button>
         ))}
-      </nav>
+      </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && (
+        <div style={{ position: "fixed", right: 16, bottom: 100, background: currentTheme.green, color: currentTheme.navy, padding: "10px 14px", borderRadius: 999, fontWeight: 900 }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
-                    }
+      }

@@ -54,6 +54,10 @@ type Property = {
   paymentMonth: string;
   lastPaymentDate: string;
   lastPaymentAmount: number;
+  beds: string;
+  baths: string;
+  sqft: string;
+  vacant: boolean;
   paymentHistory: { date: string; amount: number; method: string; note: string }[];
   taxData: {
     homeownersInsurance: number;
@@ -83,7 +87,7 @@ type Expense = {
 
 type Accountant = { id: string; name: string; title: string; email: string; primary: boolean };
 type HomeOfficeArea = { id: string; label: string; sqft: number; notes: string };
-type CompanyProfile = { displayName: string; legalName: string; address: string; supportEmail: string; reportEmail: string; phone: string };
+type CompanyProfile = { displayName: string; legalName: string; address: string; supportEmail: string; reportEmail: string; phone: string; subtitle: string };
 type TrialInfo = { email: string; phone: string; name: string; startedAt: number | null; days: number };
 
 type AppState = {
@@ -98,9 +102,10 @@ type AppState = {
   activeEntity: EntityType | "all";
   activeTab: TabKey;
   propertyDetails: Record<string, boolean>;
+  stripeAccountId: string;
 };
 
-const STORAGE_KEY = "taxsavvy_master_v3";
+const STORAGE_KEY = "taxsavvy_master_v4";
 
 const navItems: { key: TabKey; label: string }[] = [
   { key: "dashboard", label: "Home" },
@@ -108,7 +113,7 @@ const navItems: { key: TabKey; label: string }[] = [
   { key: "expenses", label: "Expenses" },
   { key: "reports", label: "Reports" },
   { key: "settings", label: "Settings" },
-  { key: "demo", label: "Invite / Demo" },
+  { key: "demo", label: "Demo" },
   { key: "trial", label: "Trial" },
   { key: "corporate", label: "Corporate" },
   { key: "personal", label: "Personal" },
@@ -131,6 +136,7 @@ const defaultProfile: CompanyProfile = {
   supportEmail: "help@taxsavvy.app",
   reportEmail: "cronin.mark2@gmail.com",
   phone: "",
+  subtitle: "State and Federal Income Tax Software",
 };
 
 const defaultTrial: TrialInfo = {
@@ -145,7 +151,8 @@ const money = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n || 0));
 
 const id = () => Math.random().toString(36).slice(2, 11);
-const currentMonthLabel = () => new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date());
+const currentMonthLabel = () =>
+  new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(new Date());
 
 const makeProperty = (overrides: Partial<Property> = {}): Property => ({
   id: id(),
@@ -176,6 +183,10 @@ const makeProperty = (overrides: Partial<Property> = {}): Property => ({
   paymentMonth: currentMonthLabel(),
   lastPaymentDate: "",
   lastPaymentAmount: 0,
+  beds: "",
+  baths: "",
+  sqft: "",
+  vacant: false,
   paymentHistory: [],
   taxData: {
     homeownersInsurance: 0,
@@ -202,6 +213,7 @@ const defaultProperties: Property[] = [
     ownerName: "Private",
     ownershipGroup: "Personal",
     rentDue: 0,
+    vacant: true,
   }),
   makeProperty({
     entity: "llc",
@@ -223,6 +235,9 @@ const defaultProperties: Property[] = [
     paymentMonth: currentMonthLabel(),
     currentBalance: 10,
     ytdCollected: 1395,
+    beds: "2",
+    baths: "1",
+    sqft: "900",
   }),
   makeProperty({
     entity: "llc",
@@ -235,6 +250,9 @@ const defaultProperties: Property[] = [
     ownershipGroup: "LLC",
     rentDue: 1400,
     tenantName: "Tenant A",
+    beds: "2",
+    baths: "1",
+    sqft: "800",
   }),
   makeProperty({
     entity: "llc",
@@ -249,6 +267,9 @@ const defaultProperties: Property[] = [
     tenantName: "Tenant B",
     leaseType: "month-to-month",
     leaseNoticeDays: 30,
+    beds: "2",
+    baths: "1",
+    sqft: "800",
   }),
   makeProperty({
     entity: "corporation",
@@ -263,11 +284,9 @@ const defaultProperties: Property[] = [
   }),
 ];
 
-const louieExpenseId = id();
-
 const defaultExpenses: Expense[] = [
   {
-    id: louieExpenseId,
+    id: id(),
     date: "2026-06-01",
     vendor: "Louie Parmalee",
     category: "Repairs",
@@ -316,6 +335,7 @@ const initialState: AppState = {
   activeEntity: "all",
   activeTab: "dashboard",
   propertyDetails: {},
+  stripeAccountId: "",
 };
 
 export default function Page() {
@@ -323,8 +343,6 @@ export default function Page() {
   const [state, setState] = useState<AppState>(initialState);
   const [toast, setToast] = useState("");
   const [showTrialBanner, setShowTrialBanner] = useState(true);
-  const [demoMode, setDemoMode] = useState(false);
-  const [liveMode, setLiveMode] = useState(true);
   const [newExpense, setNewExpense] = useState({
     vendor: "",
     category: "Repairs",
@@ -357,10 +375,25 @@ export default function Page() {
     return state.properties.filter((p) => p.entity === state.activeEntity);
   }, [state.activeEntity, state.properties]);
 
-  const ytdTotalRent = useMemo(() => activeProperties.reduce((sum, p) => sum + (p.ytdCollected || 0), 0), [activeProperties]);
-  const totalBalance = useMemo(() => activeProperties.reduce((sum, p) => sum + (p.currentBalance || 0), 0), [activeProperties]);
-  const totalTaxes = useMemo(() => activeProperties.reduce((sum, p) => sum + (p.taxData.totalPropertyTax || 0), 0), [activeProperties]);
-  const totalInsurance = useMemo(() => activeProperties.reduce((sum, p) => sum + (p.taxData.homeownersInsurance || 0), 0), [activeProperties]);
+  const ytdTotalRent = useMemo(
+    () => activeProperties.reduce((sum, p) => sum + (p.ytdCollected || 0), 0),
+    [activeProperties]
+  );
+
+  const totalBalance = useMemo(
+    () => activeProperties.reduce((sum, p) => sum + (p.currentBalance || 0), 0),
+    [activeProperties]
+  );
+
+  const totalTaxes = useMemo(
+    () => activeProperties.reduce((sum, p) => sum + (p.taxData.totalPropertyTax || 0), 0),
+    [activeProperties]
+  );
+
+  const totalInsurance = useMemo(
+    () => activeProperties.reduce((sum, p) => sum + (p.taxData.homeownersInsurance || 0), 0),
+    [activeProperties]
+  );
 
   const trialCountdown = useMemo(() => {
     if (!state.trial.startedAt) return "14 days, 0 hours, 0 minutes, 0 seconds";
@@ -390,15 +423,25 @@ export default function Page() {
   };
 
   const updateProperty = (propertyId: string, updater: (p: Property) => Property) =>
-    setState((prev) => ({ ...prev, properties: prev.properties.map((p) => (p.id === propertyId ? updater(p) : p)) }));
+    setState((prev) => ({
+      ...prev,
+      properties: prev.properties.map((p) => (p.id === propertyId ? updater(p) : p)),
+    }));
 
   const deleteProperty = (propertyId: string) =>
-    setState((prev) => ({ ...prev, properties: prev.properties.filter((p) => p.id !== propertyId) }));
+    setState((prev) => ({
+      ...prev,
+      properties: prev.properties.filter((p) => p.id !== propertyId),
+    }));
 
   const updateExpenseById = (expenseId: string, updater: (e: Expense) => Expense) =>
-    setState((prev) => ({ ...prev, expenses: prev.expenses.map((e) => (e.id === expenseId ? updater(e) : e)) }));
+    setState((prev) => ({
+      ...prev,
+      expenses: prev.expenses.map((e) => (e.id === expenseId ? updater(e) : e)),
+    }));
 
-  const updateExpenseField = (field: string, value: string) => setNewExpense((prev) => ({ ...prev, [field]: value }));
+  const updateExpenseField = (field: string, value: string) =>
+    setNewExpense((prev) => ({ ...prev, [field]: value }));
 
   const normalizeVendor = (vendor: string) => vendor.trim();
 
@@ -555,6 +598,14 @@ export default function Page() {
     boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
   } as React.CSSProperties;
 
+  const brandBoxStyle = {
+    background: currentTheme.navy,
+    color: currentTheme.white,
+    borderRadius: 18,
+    padding: 18,
+    border: "1px solid rgba(255,255,255,0.1)",
+  } as React.CSSProperties;
+
   const inputStyle = {
     width: "100%",
     border: "1px solid #cfd8e3",
@@ -592,14 +643,23 @@ export default function Page() {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: 48,
-        height: 48,
+        width: 52,
+        height: 52,
         borderRadius: 999,
         background: "#fff",
       }}
     >
-      <span style={{ fontSize: 30, fontWeight: 900, lineHeight: 1, transform: "rotate(-18deg)", display: "inline-block" }}>
-        <span style={{ color: currentTheme.green }}>$</span>
+      <span
+        style={{
+          fontSize: 32,
+          fontWeight: 900,
+          lineHeight: 1,
+          transform: "rotate(-18deg)",
+          display: "inline-block",
+          color: currentTheme.green,
+        }}
+      >
+        $
       </span>
     </span>
   );
@@ -618,6 +678,19 @@ export default function Page() {
 
   const currentMonth = currentMonthLabel();
 
+  const reportHeaderName = (p: Property) =>
+    p.ownershipGroup || p.ownerName || state.profile.displayName || "TaxSavvy";
+
+  const visibleCardLine = (label: string, value: string | number | boolean | undefined | null) => {
+    if (value === undefined || value === null || value === "") return null;
+    const displayValue = typeof value === "boolean" ? (value ? "Yes" : "No") : value;
+    return (
+      <div style={{ fontSize: 13, opacity: 0.95, marginTop: 4 }}>
+        <strong>{label}:</strong> {displayValue}
+      </div>
+    );
+  };
+
   return (
     <div style={{ minHeight: "100vh", background: currentTheme.bg, color: currentTheme.text, paddingBottom: 90 }}>
       <div
@@ -632,36 +705,17 @@ export default function Page() {
           justifyContent: "space-between",
           alignItems: "center",
           gap: 12,
+          flexWrap: "wrap",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {logoMark}
           <div>
             <div style={{ fontSize: 20, fontWeight: 900 }}>{state.profile.displayName}</div>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>State and federal income tax software</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>{state.profile.subtitle}</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button
-            style={buttonStyle(demoMode)}
-            onClick={() => {
-              setDemoMode(true);
-              setLiveMode(false);
-              setState((p) => ({ ...p, activeEntity: "all" }));
-            }}
-          >
-            Demo
-          </button>
-          <button
-            style={buttonStyle(liveMode)}
-            onClick={() => {
-              setLiveMode(true);
-              setDemoMode(false);
-              setState((p) => ({ ...p, activeEntity: "all" }));
-            }}
-          >
-            Live
-          </button>
           <button style={buttonStyle(false)} onClick={save}>
             Save
           </button>
@@ -754,9 +808,9 @@ export default function Page() {
               </label>
             ))}
 
-            <div style={{ marginTop: 16, fontWeight: 900 }}>Invite / Demo</div>
+            <div style={{ marginTop: 16, fontWeight: 900 }}>Demo Link</div>
             <div style={{ marginTop: 8, fontSize: 13, opacity: 0.85 }}>
-              <Link href="/demo">Click here to see how it works</Link>
+              <Link href="/demo">Click here to see the demo page</Link>
             </div>
 
             <div style={{ marginTop: 16, fontSize: 12, opacity: 0.8 }}>
@@ -787,12 +841,16 @@ export default function Page() {
                         <div>
                           <div style={{ color: currentTheme.green, fontSize: 22, fontWeight: 900 }}>{p.address1 || p.name}</div>
                           <div style={{ fontSize: 14, opacity: 0.95, marginTop: 2 }}>{p.name}</div>
-                          <div style={{ marginTop: 8, fontSize: 13, opacity: 0.9 }}>Owner: {p.ownerName || "—"}</div>
-                          <div style={{ fontSize: 13, opacity: 0.9 }}>Tenant: {p.tenantName || "—"}</div>
-                          <div style={{ fontSize: 13, opacity: 0.9 }}>Lease ends: {p.leaseEnd || "—"}</div>
+                          {visibleCardLine("Owner", p.ownerName)}
+                          {visibleCardLine("Tenant", p.tenantName)}
+                          {visibleCardLine("Lease ends", p.leaseEnd)}
+                          {visibleCardLine("Beds", p.beds)}
+                          {visibleCardLine("Baths", p.baths)}
+                          {visibleCardLine("Sq Ft", p.sqft)}
+                          {visibleCardLine("Vacant", p.vacant)}
                           <div style={{ marginTop: 10, background: "rgba(255,255,255,0.1)", borderRadius: 14, padding: "10px 12px", display: "inline-block" }}>
                             <div style={{ fontSize: 12, opacity: 0.8 }}>Month Due</div>
-                            <div style={{ fontSize: 18, fontWeight: 900 }}>{p.paymentMonth || currentMonth}</div>
+                            <div style={{ fontSize: 18, fontWeight: 900 }}>{p.vacant ? "Vacant" : p.paymentMonth || currentMonth}</div>
                           </div>
                         </div>
                         <div style={{ textAlign: "right" }}>
@@ -800,6 +858,9 @@ export default function Page() {
                           <div style={{ fontSize: 26, fontWeight: 900 }}>{money(p.ytdCollected)}</div>
                           <div style={{ marginTop: 8, fontSize: 14, opacity: 0.8 }}>Balance</div>
                           <div style={{ fontSize: 22, fontWeight: 900 }}>{money(p.currentBalance)}</div>
+                          <div style={{ marginTop: 10, fontSize: 13, opacity: 0.9 }}>
+                            {p.monthStatus}
+                          </div>
                         </div>
                       </div>
 
@@ -823,6 +884,7 @@ export default function Page() {
                               monthStatus: "Paid",
                               currentBalance: 0,
                               paymentMonth: currentMonth,
+                              vacant: false,
                             }))
                           }
                         >
@@ -835,10 +897,23 @@ export default function Page() {
                               ...x,
                               monthStatus: "Partial",
                               paymentMonth: currentMonth,
+                              vacant: false,
                             }))
                           }
                         >
                           Partial payment
+                        </button>
+                        <button
+                          style={buttonStyle(false)}
+                          onClick={() =>
+                            updateProperty(p.id, (x) => ({
+                              ...x,
+                              vacant: !x.vacant,
+                              monthStatus: x.vacant ? "Due" : "Vacant",
+                            }))
+                          }
+                        >
+                          Toggle vacant
                         </button>
                       </div>
 
@@ -858,7 +933,10 @@ export default function Page() {
                           <input style={inputStyle} value={String(p.rentDue)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, rentDue: Number(e.target.value || 0) }))} placeholder="Monthly rent" />
                           <input style={inputStyle} value={String(p.currentBalance)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, currentBalance: Number(e.target.value || 0) }))} placeholder="Current balance" />
                           <input style={inputStyle} value={String(p.ytdCollected)} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, ytdCollected: Number(e.target.value || 0) }))} placeholder="YTD collected" />
-                          <input style={inputStyle} value={p.notes} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, notes: e.target.value }))} placeholder="Notes" />
+                          <input style={inputStyle} value={p.beds} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, beds: e.target.value }))} placeholder="Beds" />
+                          <input style={inputStyle} value={p.baths} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, baths: e.target.value }))} placeholder="Baths" />
+                          <input style={inputStyle} value={p.sqft} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, sqft: e.target.value }))} placeholder="Square footage" />
+                          <textarea style={{ ...inputStyle, minHeight: 90, gridColumn: "1 / -1" }} value={p.notes} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, notes: e.target.value }))} placeholder="Notes" />
                         </div>
                       )}
                     </div>
@@ -934,6 +1012,23 @@ export default function Page() {
                       <input style={inputStyle} value={p.additionalFamilyMembers} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, additionalFamilyMembers: e.target.value }))} placeholder="Additional family members" />
                       <input style={inputStyle} value={p.yearPurchased} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, yearPurchased: e.target.value }))} placeholder="Year purchased" />
                       <input style={inputStyle} value={p.monthPurchased} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, monthPurchased: e.target.value }))} placeholder="Month purchased" />
+                      <input style={inputStyle} value={p.beds} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, beds: e.target.value }))} placeholder="Beds" />
+                      <input style={inputStyle} value={p.baths} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, baths: e.target.value }))} placeholder="Baths" />
+                      <input style={inputStyle} value={p.sqft} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, sqft: e.target.value }))} placeholder="Square footage" />
+                      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={p.vacant}
+                          onChange={(e) =>
+                            updateProperty(p.id, (x) => ({
+                              ...x,
+                              vacant: e.target.checked,
+                              monthStatus: e.target.checked ? "Vacant" : x.monthStatus,
+                            }))
+                          }
+                        />
+                        Vacant
+                      </label>
                       <input style={inputStyle} value={p.notes} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, notes: e.target.value }))} placeholder="Notes" />
                     </div>
 
@@ -958,6 +1053,7 @@ export default function Page() {
                             currentBalance: 0,
                             monthStatus: "Paid",
                             paymentMonth: currentMonth,
+                            vacant: false,
                           }))
                         }
                       >
@@ -970,10 +1066,23 @@ export default function Page() {
                             ...x,
                             monthStatus: "Partial",
                             paymentMonth: currentMonth,
+                            vacant: false,
                           }))
                         }
                       >
                         Partial Payment
+                      </button>
+                      <button
+                        style={buttonStyle(false)}
+                        onClick={() =>
+                          updateProperty(p.id, (x) => ({
+                            ...x,
+                            vacant: !x.vacant,
+                            monthStatus: !x.vacant ? "Vacant" : "Due",
+                          }))
+                        }
+                      >
+                        Toggle Vacant
                       </button>
                       <button style={buttonStyle(false)} onClick={() => deleteProperty(p.id)}>
                         Delete
@@ -1121,6 +1230,34 @@ export default function Page() {
 
             {state.activeTab === "reports" && (
               <div style={{ display: "grid", gap: 16 }}>
+                {activeProperties.map((p) => {
+                  const header = reportHeaderName(p);
+                  return (
+                    <div key={p.id} style={brandBoxStyle}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontSize: 22, fontWeight: 900 }}>{header}</div>
+                          <div style={{ marginTop: 6, opacity: 0.9 }}>{p.address1}</div>
+                          <div style={{ opacity: 0.9 }}>{p.city}, {p.state} {p.zip}</div>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 13, opacity: 0.8 }}>Report Type</div>
+                          <div style={{ fontSize: 20, fontWeight: 900 }}>Entity Report</div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", marginTop: 16 }}>
+                        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>YTD Collected: {money(p.ytdCollected)}</div>
+                        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>Current Balance: {money(p.currentBalance)}</div>
+                        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>Vacant: {p.vacant ? "Yes" : "No"}</div>
+                        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>Beds: {p.beds || "—"}</div>
+                        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>Baths: {p.baths || "—"}</div>
+                        <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 12 }}>Sq Ft: {p.sqft || "—"}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+
                 <div style={boxStyle}>
                   <div style={{ fontSize: 22, fontWeight: 900 }}>Reports</div>
                   <div style={{ opacity: 0.7 }}>P&L, Schedule E, Schedule A, home office, mileage, and more.</div>
@@ -1140,6 +1277,25 @@ export default function Page() {
                     <div>Income and expense data can later be connected to QuickBooks sync or export.</div>
                   </div>
                 </div>
+
+                <div style={brandBoxStyle}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 900 }}>Report generated by TaxSavvy</div>
+                      <div style={{ marginTop: 4, opacity: 0.85 }}>{state.profile.subtitle}</div>
+                    </div>
+                    <div style={{ width: 90, height: 90, borderRadius: 16, border: "2px dashed rgba(255,255,255,0.45)", display: "grid", placeItems: "center", fontSize: 12, opacity: 0.8 }}>
+                      QR Code
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
+                    {logoMark}
+                    <div>
+                      <div style={{ fontWeight: 900 }}>{state.profile.displayName}</div>
+                      <div style={{ fontSize: 12, opacity: 0.8 }}>State and Federal Income Tax Software</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1155,6 +1311,8 @@ export default function Page() {
                     <input style={inputStyle} value={state.profile.supportEmail} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, supportEmail: e.target.value } }))} placeholder="Support email" />
                     <input style={inputStyle} value={state.profile.reportEmail} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, reportEmail: e.target.value } }))} placeholder="Report email" />
                     <input style={inputStyle} value={state.profile.phone} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, phone: e.target.value } }))} placeholder="Phone" />
+                    <input style={inputStyle} value={state.profile.subtitle} onChange={(e) => setState((p) => ({ ...p, profile: { ...p.profile, subtitle: e.target.value } }))} placeholder="Subtitle" />
+                    <input style={inputStyle} value={state.stripeAccountId} onChange={(e) => setState((p) => ({ ...p, stripeAccountId: e.target.value }))} placeholder="Stripe Account ID" />
                   </div>
                 </div>
 
@@ -1166,9 +1324,9 @@ export default function Page() {
                 </div>
 
                 <div style={boxStyle}>
-                  <div style={{ fontSize: 18, fontWeight: 900 }}>Logo</div>
+                  <div style={{ fontSize: 18, fontWeight: 900 }}>Demo Link</div>
                   <div style={{ marginTop: 10, lineHeight: 1.6 }}>
-                    The header now uses one TaxSavvy wordmark and the subtitle “State and federal income tax software.” The logo mark is medium thickness and angled.
+                    The demo page is separate at <strong>/demo</strong> and can be linked from here or from the menu.
                   </div>
                 </div>
               </div>
@@ -1243,10 +1401,21 @@ export default function Page() {
       </div>
 
       {toast && (
-        <div style={{ position: "fixed", right: 16, bottom: 100, background: currentTheme.green, color: currentTheme.navy, padding: "10px 14px", borderRadius: 999, fontWeight: 900 }}>
+        <div
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 100,
+            background: currentTheme.green,
+            color: currentTheme.navy,
+            padding: "10px 14px",
+            borderRadius: 999,
+            fontWeight: 900,
+          }}
+        >
           {toast}
         </div>
       )}
     </div>
   );
-                      }
+}

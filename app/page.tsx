@@ -942,7 +942,7 @@ export default function Page() {
                       <input style={inputStyle} value={p.tenantPhone} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, tenantPhone: e.target.value }))} placeholder="Tenant phone" />
                       <input style={inputStyle} value={p.tenantEmployer} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, tenantEmployer: e.target.value }))} placeholder="Tenant employer" />
                       <input style={inputStyle} value={p.additionalFamilyMembers} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, additionalFamilyMembers: e.target.value }))} placeholder="Additional family members" />
-                      <input style={inputStyle} value={p.yearPurchased} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, yearPurchased: e.target.value }))} placeholder="Year purchased" />
+                      
                       <input style={inputStyle} value={p.monthPurchased} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, monthPurchased: e.target.value }))} placeholder="Month purchased" />
                       <input style={inputStyle} value={p.beds} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, beds: e.target.value }))} placeholder="Beds" />
                       <input style={inputStyle} value={p.baths} onChange={(e) => updateProperty(p.id, (x) => ({ ...x, baths: e.target.value }))} placeholder="Baths" />

@@ -131,14 +131,12 @@ const getLeaseCountdown = (property: Property) => {
   if (property.leaseType !== "fixed" || !property.leaseEndDate) {
     return null;
   }
-  const today = todayISO();
-  const daysUntilEnd = daysBetween(today, property.leaseEndDate);
   const noticeDeadlineISO = new Date(
-    new Date(property.leaseEndDate).getTime() -
-      property.noticeDays  24  60  60  1000
-  )
-    .toISOString()
-    .slice(0, 10);
+  new Date(property.leaseEndDate).getTime() -
+  property.noticeDays * 24 * 60 * 60 * 1000
+)
+  .toISOString()
+  .slice(0, 10);
   const daysUntilNoticeDeadline = daysBetween(today, noticeDeadlineISO);
 
   const increaseNoticeISO = new Date(
@@ -452,7 +450,7 @@ const PropertyCard: React.FC<{
             type={
               isPaidInFullForMonth(property, currentMonthKey)
                 ? "good"
-                : remaining > 0
+                : remaining > 
                 ? "warn"
                 : "good"
             }

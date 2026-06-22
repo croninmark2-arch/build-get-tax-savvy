@@ -169,7 +169,7 @@ const Header: React.FC<{
         padding: "12px 16px",
         display: "flex",
         alignItems: "center",
-        borderBottom: 4px solid ${NEON_GREEN},
+        borderBottom: `4px solid ${NEON_GREEN}`,
       }}
     >
       <button

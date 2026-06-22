@@ -138,10 +138,10 @@ const getLeaseCountdown = (property: Property) => {
   .toISOString()
   .slice(0, 10);
   const daysUntilNoticeDeadline = daysBetween(today, noticeDeadlineISO);
-
+  
   const increaseNoticeISO = new Date(
     new Date(property.leaseEndDate).getTime() -
-      property.rentIncreaseNoticeDays  24  60  60  1000
+    property.rentIncreaseNoticeDays * 24 * 60 * 60 * 1000
   )
     .toISOString()
     .slice(0, 10);

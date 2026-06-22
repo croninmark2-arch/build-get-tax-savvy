@@ -194,7 +194,7 @@ const Header: React.FC<{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: 4px solid ${NEON_GREEN},
+            border: `4px solid ${NEON_GREEN}`,
           }}
         >
           {logoUrl ? (

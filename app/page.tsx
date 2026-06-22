@@ -1,4 +1,4 @@
-"use client"; 
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 
@@ -11,7 +11,7 @@ type Tab =
   | "settings"
   | "upgrade";
 
-type Mode = "live" | "demo";
+type Mode = "live";
 
 type Property = {
   id: number;
@@ -106,7 +106,7 @@ const fmt = (n: number | string | undefined | null) =>
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);
-  const [mode, setMode] = useState<Mode>("live");
+  const [mode] = useState<Mode>("live");
   const [tab, setTab] = useState<Tab>("dashboard");
   const [state, setState] = useState<AppState>(LIVE_SEED);
   const [trialEmail, setTrialEmail] = useState("");
@@ -122,11 +122,10 @@ export default function Page() {
   const [emailTarget, setEmailTarget] = useState("");
   const [showTrialPopup, setShowTrialPopup] = useState(false);
 
-  const storageKey = useMemo(() => (mode === "demo" ? "taxsavvy_demo_v1" : "taxsavvy_live_v1"), [mode]);
+  const storageKey = useMemo(() => "taxsavvy_live_v1", []);
   const darkNavy = state.brandNavy || "#1b2a4a";
   const blue = state.brandBlue || "#2f6fed";
   const green = state.brandGreen || "#4cff34";
-
   const properties = state.properties;
 
   const activeTrialDaysLeft = useMemo(() => {
@@ -148,10 +147,7 @@ export default function Page() {
   }, [state.trial.startAt, state.trial.trialDays]);
 
   useEffect(() => {
-    const savedMode = (localStorage.getItem("taxsavvy_mode") as Mode | null) || "live";
-    setMode(savedMode);
-    const key = savedMode === "demo" ? "taxsavvy_demo_v1" : "taxsavvy_live_v1";
-    const raw = localStorage.getItem(key);
+    const raw = localStorage.getItem(storageKey);
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as AppState;
@@ -166,13 +162,13 @@ export default function Page() {
       setState(LIVE_SEED);
     }
     setMounted(true);
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     if (!mounted) return;
-    localStorage.setItem("taxsavvy_mode", mode);
+    localStorage.setItem("taxsavvy_mode", "live");
     localStorage.setItem(storageKey, JSON.stringify(state));
-  }, [mounted, mode, storageKey, state]);
+  }, [mounted, storageKey, state]);
 
   useEffect(() => {
     if (!mounted || !state.trial.startAt) return;
@@ -195,12 +191,6 @@ export default function Page() {
   const saveNow = () => {
     localStorage.setItem(storageKey, JSON.stringify(state));
     notify("Saved");
-  };
-
-  const toggleMode = () => {
-    const next = mode === "live" ? "demo" : "live";
-    setMode(next);
-    setTab("dashboard");
   };
 
   const updateTrial = () => {
@@ -296,7 +286,7 @@ Rental income: ${fmt(totalIncome)}
 Rental expenses: ${fmt(totalExpenses)}
 Net: ${fmt(totalRental)}`);
     } else if (type === "schedulea") {
-setReportText("Schedule A Personal deductions and itemized items can be summarized here.");
+      setReportText("Schedule A Personal deductions and itemized items can be summarized here.");
     } else if (type === "homeoffice") {
       setReportText(`Home Office Summary
 Areas: ${state.homeOffices.length}
@@ -376,8 +366,7 @@ Add mileage tracking here for property visits and business travel.");
         </div>
 
         <div className="row">
-          <span className="chip">{mode === "demo" ? "DEMO" : "LIVE – Private"}</span>
-          <button className="btn btn-white" onClick={toggleMode}>{mode === "live" ? "Demo Mode" : "Live Mode"}</button>
+          <span className="chip">LIVE – Private</span>
           <button className="btn btn-green" onClick={saveNow}>Save</button>
         </div>
       </header>
@@ -416,7 +405,6 @@ Add mileage tracking here for property visits and business travel.");
             <h2 className="title" style={{ margin: 0 }}>Properties</h2>
             <button className="btn btn-green" onClick={addProperty}>+ Add Property</button>
           </div>
-
           <div className="sidewrap">
             <div className="card" style={{ background: darkNavy, color: "#fff", border: `1px solid ${green}` }}>
               <div style={{ fontWeight: 800, marginBottom: 8 }}>Property Setup</div>
@@ -620,4 +608,4 @@ Add mileage tracking here for property visits and business travel.");
       </nav>
     </div>
   );
-}
+          }

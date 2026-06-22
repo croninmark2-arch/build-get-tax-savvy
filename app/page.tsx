@@ -67,7 +67,10 @@ const getMonthKey = (date: string) => date.slice(0, 7); // YYYY-MM
 const daysBetween = (fromISO: string, toISO: string) => {
   const from = new Date(fromISO);
   const to = new Date(toISO);
-  return Math.floor((to.getTime() - from.getTime()) / (1000  60  60 * 24));
+  const daysBetween = (fromISO: string, toISO: string) => {
+  const from = new Date(fromISO);
+  const to = new Date(toISO);
+  return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 };
 
 const isPaidInFullForMonth = (property: Property, monthKey: string) => {

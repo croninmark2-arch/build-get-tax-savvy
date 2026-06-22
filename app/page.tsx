@@ -279,12 +279,10 @@ const BottomNav: React.FC<{
               justifyContent: "center",
               gap: 4,
               padding: "6px 4px",
-              backgroundColor: isActive ? NEONGREEN : NAVYSECONDARY,
-              border: isActive
-        border: isActive
-  ? `4px solid ${NEON_GREEN}`
-  : `4px solid ${NEON_GREEN}`,
-              color: isActive ? NAVY : WHITE,
+        backgroundColor: isActive ? NEONGREEN : NAVYSECONDARY,
+border: `4px solid ${NEON_GREEN}`,
+color: isActive ? NAVY : WHITE,
+fontSize: 11,
               fontSize: 11,
               fontWeight: isActive ? 700 : 500,
               cursor: "pointer",

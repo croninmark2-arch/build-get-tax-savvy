@@ -355,13 +355,12 @@ const PropertyCard: React.FC<{
 
   const handleSavePayment = () => {
     const parsed = parseFloat(amount || "0");
-    if (!parsed || parsed <= 0) return;
-    const newPayment: Payment = {
-      id: ${property.id}-${Date.now()},
-      amount: parsed,
-      date,
-      method,
-    };
+  const newPayment: Payment = {
+  id: `${property.id}-${Date.now()}`,
+  amount: parsed,
+  date,
+  method,
+}
     onAddPayment(property.id, newPayment);
     setAmount("");
     setDate(todayISO());

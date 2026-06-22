@@ -292,8 +292,7 @@ Net: ${fmt(totalRental)}`);
 Areas: ${state.homeOffices.length}
 Total office sqft: ${officeSqft}`);
     } else if (type === "mileage") {
-      setReportText("Mileage Report
-Add mileage tracking here for property visits and business travel.");
+      setReportText("Mileage Report Add mileage tracking here for property visits and business travel.");
     }
     notify("Report generated");
   };

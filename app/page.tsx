@@ -259,7 +259,7 @@ const BottomNav: React.FC<{
     <nav
       style={{
         backgroundColor: NAVY_SECONDARY,
-        borderTop: 4px solid ${NEON_GREEN},
+        borderTop: `4px solid ${NEON_GREEN}`,
         display: "flex",
         justifyContent: "space-around",
         padding: "8px 0",

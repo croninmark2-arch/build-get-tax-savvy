@@ -296,8 +296,7 @@ Rental income: ${fmt(totalIncome)}
 Rental expenses: ${fmt(totalExpenses)}
 Net: ${fmt(totalRental)}`);
     } else if (type === "schedulea") {
-      setReportText("Schedule A
-Personal deductions and itemized items can be summarized here.");
+setReportText("Schedule A Personal deductions and itemized items can be summarized here.");
     } else if (type === "homeoffice") {
       setReportText(`Home Office Summary
 Areas: ${state.homeOffices.length}
